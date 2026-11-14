@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <WindowsSdkPackageVersion>10.0.19041.57</WindowsSdkPackageVersion>
+    <UseWinUI>true</UseWinUI>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <ProjectPriFileName>resources.pri</ProjectPriFileName>
+    <EnableDefaultApplicationDefinition>true</EnableDefaultApplicationDefinition>
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
+    <SelfContained>false</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PlatformTarget>x64</PlatformTarget>
+    <Platforms>x64</Platforms>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\periring.ico</ApplicationIcon>
+    <Title>环电 · PeriRing</Title>
+    <AssemblyTitle>环电 · PeriRing</AssemblyTitle>
+    <Product>环电 · PeriRing</Product>
+    <Description>环电 · PeriRing — 托盘外设电量</Description>
+    <Version>0.1.0</Version>
+    <AssemblyName>BatteryDisplay</AssemblyName>
+    <RootNamespace>BatteryDisplay</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.6.4" />
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App" />
+    <EmbeddedResource Include="DeviceCatalog.json" />
+    <None Update="README.md" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="SUPPORTED-DEVICES.md" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="THIRD-PARTY-NOTICES.md" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="LICENSE" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="CHANGELOG.md" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="Assets\periring.ico" TargetPath="periring.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="Assets\periring-64.png" TargetPath="periring-64.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="PublishWinUIResources" AfterTargets="Publish">
+    <Copy SourceFiles="$(TargetDir)resources.pri" DestinationFolder="$(PublishDir)" Condition="Exists('$(TargetDir)resources.pri')" />
+    <Copy SourceFiles="$(TargetDir)App.xbf" DestinationFolder="$(PublishDir)" Condition="Exists('$(TargetDir)App.xbf')" />
+    <Error Condition="!Exists('$(PublishDir)resources.pri')" Text="WinUI 资源索引没有发布，不能交付此构建。" />
+  </Target>
+</Project>

@@ -1,0 +1,1444 @@
+[
+  {
+    "Vendor": 5426,
+    "Product": 656,
+    "Name": "Razer DeathStalker V2 Pro",
+    "Protocol": "razer",
+    "Parameter": 159
+  },
+  {
+    "Vendor": 5426,
+    "Product": 658,
+    "Name": "Razer DeathStalker V2 Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 662,
+    "Name": "Razer DeathStalker V2 Pro TKL",
+    "Protocol": "razer",
+    "Parameter": 159
+  },
+  {
+    "Vendor": 5426,
+    "Product": 664,
+    "Name": "Razer DeathStalker V2 Pro TKL",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 625,
+    "Name": "Razer BlackWidow V3 Mini HyperSpeed",
+    "Protocol": "razer",
+    "Parameter": 159
+  },
+  {
+    "Vendor": 5426,
+    "Product": 600,
+    "Name": "Razer BlackWidow V3 Mini HyperSpeed",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 698,
+    "Name": "Razer BlackWidow V4 Mini HyperSpeed",
+    "Protocol": "razer",
+    "Parameter": 159
+  },
+  {
+    "Vendor": 5426,
+    "Product": 697,
+    "Name": "Razer BlackWidow V4 Mini HyperSpeed",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 725,
+    "Name": "Razer BlackWidow V4 Tenkeyless HyperSpeed",
+    "Protocol": "razer",
+    "Parameter": 159
+  },
+  {
+    "Vendor": 5426,
+    "Product": 727,
+    "Name": "Razer BlackWidow V4 Tenkeyless HyperSpeed",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 31,
+    "Name": "Razer Naga Epic",
+    "Protocol": "razer",
+    "Parameter": 255
+  },
+  {
+    "Vendor": 5426,
+    "Product": 36,
+    "Name": "Razer Mamba (2012)",
+    "Protocol": "razer",
+    "Parameter": 255
+  },
+  {
+    "Vendor": 5426,
+    "Product": 37,
+    "Name": "Razer Mamba (2012)",
+    "Protocol": "razer",
+    "Parameter": 255
+  },
+  {
+    "Vendor": 5426,
+    "Product": 50,
+    "Name": "Razer Ouroboros",
+    "Protocol": "razer",
+    "Parameter": 255
+  },
+  {
+    "Vendor": 5426,
+    "Product": 62,
+    "Name": "Razer Naga Epic Chroma",
+    "Protocol": "razer",
+    "Parameter": 255
+  },
+  {
+    "Vendor": 5426,
+    "Product": 63,
+    "Name": "Razer Naga Epic Chroma",
+    "Protocol": "razer",
+    "Parameter": 255
+  },
+  {
+    "Vendor": 5426,
+    "Product": 68,
+    "Name": "Razer Mamba",
+    "Protocol": "razer",
+    "Parameter": 255
+  },
+  {
+    "Vendor": 5426,
+    "Product": 69,
+    "Name": "Razer Mamba",
+    "Protocol": "razer",
+    "Parameter": 255
+  },
+  {
+    "Vendor": 5426,
+    "Product": 89,
+    "Name": "Razer Lancehead",
+    "Protocol": "razer",
+    "Parameter": 63
+  },
+  {
+    "Vendor": 5426,
+    "Product": 90,
+    "Name": "Razer Lancehead",
+    "Protocol": "razer",
+    "Parameter": 63
+  },
+  {
+    "Vendor": 5426,
+    "Product": 98,
+    "Name": "Razer Atheris",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 111,
+    "Name": "Razer Lancehead Wireless",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 112,
+    "Name": "Razer Lancehead Wireless",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 114,
+    "Name": "Razer Mamba Wireless",
+    "Protocol": "razer",
+    "Parameter": 63
+  },
+  {
+    "Vendor": 5426,
+    "Product": 115,
+    "Name": "Razer Mamba Wireless",
+    "Protocol": "razer",
+    "Parameter": 63
+  },
+  {
+    "Vendor": 5426,
+    "Product": 119,
+    "Name": "Razer Pro Click",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 128,
+    "Name": "Razer Pro Click",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 122,
+    "Name": "Razer Viper Ultimate",
+    "Protocol": "razer",
+    "Parameter": 255
+  },
+  {
+    "Vendor": 5426,
+    "Product": 123,
+    "Name": "Razer Viper Ultimate",
+    "Protocol": "razer",
+    "Parameter": 255
+  },
+  {
+    "Vendor": 5426,
+    "Product": 124,
+    "Name": "Razer DeathAdder V2 Pro",
+    "Protocol": "razer",
+    "Parameter": 63
+  },
+  {
+    "Vendor": 5426,
+    "Product": 125,
+    "Name": "Razer DeathAdder V2 Pro",
+    "Protocol": "razer",
+    "Parameter": 63
+  },
+  {
+    "Vendor": 5426,
+    "Product": 131,
+    "Name": "Razer Basilisk X HyperSpeed",
+    "Protocol": "razer",
+    "Parameter": 255
+  },
+  {
+    "Vendor": 5426,
+    "Product": 134,
+    "Name": "Razer Basilisk Ultimate",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 136,
+    "Name": "Razer Basilisk Ultimate",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 143,
+    "Name": "Razer Naga Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 144,
+    "Name": "Razer Naga Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 148,
+    "Name": "Razer Orochi V2",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 154,
+    "Name": "Razer Pro Click Mini",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 156,
+    "Name": "Razer DeathAdder V2 X HyperSpeed",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 158,
+    "Name": "Razer Viper Mini SE",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 159,
+    "Name": "Razer Viper Mini SE",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 165,
+    "Name": "Razer Viper V2 Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 166,
+    "Name": "Razer Viper V2 Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 167,
+    "Name": "Razer Naga V2 Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 168,
+    "Name": "Razer Naga V2 Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 170,
+    "Name": "Razer Basilisk V3 Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 171,
+    "Name": "Razer Basilisk V3 Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 175,
+    "Name": "Razer Cobra Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 176,
+    "Name": "Razer Cobra Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 179,
+    "Name": "Razer HyperPolling Dongle",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 180,
+    "Name": "Razer Naga V2 HyperSpeed",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 182,
+    "Name": "Razer DeathAdder V3 Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 183,
+    "Name": "Razer DeathAdder V3 Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 184,
+    "Name": "Razer Viper V3 HyperSpeed",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 185,
+    "Name": "Razer Basilisk V3 X HyperSpeed",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 190,
+    "Name": "Razer DeathAdder V4 Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 191,
+    "Name": "Razer DeathAdder V4 Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 192,
+    "Name": "Razer Viper V3 Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 193,
+    "Name": "Razer Viper V3 Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 222,
+    "Name": "Razer Viper V3 Pro SE",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 223,
+    "Name": "Razer Viper V3 Pro SE",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 229,
+    "Name": "Razer Viper V4 Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 230,
+    "Name": "Razer Viper V4 Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 194,
+    "Name": "Razer DeathAdder V3 Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 195,
+    "Name": "Razer DeathAdder V3 Pro",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 196,
+    "Name": "Razer DeathAdder V3 HyperSpeed",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 197,
+    "Name": "Razer DeathAdder V3 HyperSpeed",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 199,
+    "Name": "Razer Pro Click V2 Vertical Edition",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 200,
+    "Name": "Razer Pro Click V2 Vertical Edition",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 204,
+    "Name": "Razer Basilisk V3 Pro 35K",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 205,
+    "Name": "Razer Basilisk V3 Pro 35K",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 208,
+    "Name": "Razer Pro Click V2",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 209,
+    "Name": "Razer Pro Click V2",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 211,
+    "Name": "Razer Basilisk Mobile",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 212,
+    "Name": "Razer Basilisk Mobile",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 214,
+    "Name": "Razer Basilisk V3 Pro 35K Phantom Green",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 215,
+    "Name": "Razer Basilisk V3 Pro 35K Phantom Green",
+    "Protocol": "razer",
+    "Parameter": 31
+  },
+  {
+    "Vendor": 5426,
+    "Product": 602,
+    "Name": "Razer BlackWidow V3 Pro",
+    "Protocol": "razer",
+    "Parameter": 63
+  },
+  {
+    "Vendor": 5426,
+    "Product": 604,
+    "Name": "Razer BlackWidow V3 Pro",
+    "Protocol": "razer",
+    "Parameter": 159
+  },
+  {
+    "Vendor": 5426,
+    "Product": 635,
+    "Name": "Razer Pro Type Ultra",
+    "Protocol": "razer",
+    "Parameter": 159
+  },
+  {
+    "Vendor": 13652,
+    "Product": 62967,
+    "Name": "Scyrox 8K Dongle",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 13652,
+    "Product": 62966,
+    "Name": "Scyrox (wired)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 13652,
+    "Product": 62943,
+    "Name": "Cougar Revenger Pro 4K",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 13652,
+    "Product": 62942,
+    "Name": "Cougar Revenger Pro 4K (wired)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 13652,
+    "Product": 62940,
+    "Name": "Cougar Revenger Pro (2.4 GHz)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 13652,
+    "Product": 62728,
+    "Name": "Pulsar X2 V2 Mini (wireless)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 13652,
+    "Product": 62727,
+    "Name": "Pulsar X2 V2 Mini (wired)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 13652,
+    "Product": 62863,
+    "Name": "ATK VXE R1 SE+ (wired)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 13652,
+    "Product": 62858,
+    "Name": "VXE R1 Pro / R1 Pro Max (2.4 GHz)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 13652,
+    "Product": 62860,
+    "Name": "VXE R1 Pro Max (wired)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 13652,
+    "Product": 62725,
+    "Name": "VGN Dragonfly 4K (receiver)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 13652,
+    "Product": 62726,
+    "Name": "VGN Dragonfly 4K (wired)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 13652,
+    "Product": 62933,
+    "Name": "Redragon M991 / K1NG Max (2.4 GHz)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 13652,
+    "Product": 62814,
+    "Name": "Redragon M991 (wired)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 13652,
+    "Product": 64009,
+    "Name": "Compx 2.4 GHz keyboard",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 13652,
+    "Product": 62755,
+    "Name": "Teevolution Terra Pro (2.4 GHz)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 6940,
+    "Product": 11050,
+    "Name": "Corsair Sabre v2 Pro Ultralight",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 14139,
+    "Product": 4534,
+    "Name": "ATK A9 Ultimate (wired)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 14139,
+    "Product": 4569,
+    "Name": "ATK A9 Ultimate (2.4 GHz dongle)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 14139,
+    "Product": 4297,
+    "Name": "ATK A9 SE (2.4 GHz)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 14139,
+    "Product": 4229,
+    "Name": "ATK VXE R1 SE+ (2.4 GHz)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 14139,
+    "Product": 4122,
+    "Name": "ATK X1 Pro (2.4 GHz)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 14139,
+    "Product": 4123,
+    "Name": "ATK Fire X 8K (2.4 GHz dongle)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 14192,
+    "Product": 768,
+    "Name": "Hitscan Hyperlight (8K receiver)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 14192,
+    "Product": 512,
+    "Name": "Hitscan Hyperlight (2.4 GHz)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 14192,
+    "Product": 256,
+    "Name": "Hitscan Hyperlight (wired)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 14096,
+    "Product": 21510,
+    "Name": "Pulsar X2 CrazyLight Mini (2.4 GHz)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 14096,
+    "Product": 13332,
+    "Name": "Pulsar X2 CrazyLight Mini (wired)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 13284,
+    "Product": 14420,
+    "Name": "G-Wolves mouse (8K receiver)",
+    "Protocol": "compx"
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8865,
+    "Name": "Arctis Nova 7",
+    "Protocol": "steelseries",
+    "Parameter": 0
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8706,
+    "Name": "Arctis Nova 7",
+    "Protocol": "steelseries",
+    "Parameter": 1
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8830,
+    "Name": "Arctis Nova 7 Gen 2",
+    "Protocol": "steelseries",
+    "Parameter": 0
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8710,
+    "Name": "Arctis Nova 7x",
+    "Protocol": "steelseries",
+    "Parameter": 1
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8792,
+    "Name": "Arctis Nova 7x",
+    "Protocol": "steelseries",
+    "Parameter": 0
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8862,
+    "Name": "Arctis Nova 7x",
+    "Protocol": "steelseries",
+    "Parameter": 0
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8877,
+    "Name": "Arctis Nova 7x",
+    "Protocol": "steelseries",
+    "Parameter": 0
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8868,
+    "Name": "Arctis Nova 7X",
+    "Protocol": "steelseries",
+    "Parameter": 1
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8869,
+    "Name": "Arctis Nova 7X",
+    "Protocol": "steelseries",
+    "Parameter": 0
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8762,
+    "Name": "Arctis Nova 7 Diablo IV",
+    "Protocol": "steelseries",
+    "Parameter": 1
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8873,
+    "Name": "Arctis Nova 7 Diablo IV",
+    "Protocol": "steelseries",
+    "Parameter": 0
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8826,
+    "Name": "Arctis Nova 7 WoW Edition",
+    "Protocol": "steelseries",
+    "Parameter": 1
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8754,
+    "Name": "Arctis Nova 5",
+    "Protocol": "steelseries",
+    "Parameter": 2
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8787,
+    "Name": "Arctis Nova 5X",
+    "Protocol": "steelseries",
+    "Parameter": 2
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8714,
+    "Name": "Arctis Nova 7P",
+    "Protocol": "steelseries",
+    "Parameter": 1
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8871,
+    "Name": "Arctis Nova 7P",
+    "Protocol": "steelseries",
+    "Parameter": 0
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8856,
+    "Name": "Arctis Nova 7P",
+    "Protocol": "steelseries",
+    "Parameter": 0
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8809,
+    "Name": "Arctis Nova 3P Wireless",
+    "Protocol": "steelseries",
+    "Parameter": 2
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8813,
+    "Name": "Arctis Nova 3X Wireless",
+    "Protocol": "steelseries",
+    "Parameter": 2
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8718,
+    "Name": "Arctis 7+",
+    "Protocol": "steelseries",
+    "Parameter": 3
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8722,
+    "Name": "Arctis 7+ PS5",
+    "Protocol": "steelseries",
+    "Parameter": 3
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8726,
+    "Name": "Arctis 7+ Xbox",
+    "Protocol": "steelseries",
+    "Parameter": 3
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8758,
+    "Name": "Arctis 7+ Destiny",
+    "Protocol": "steelseries",
+    "Parameter": 3
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8970,
+    "Name": "Arctis GameBuds",
+    "Protocol": "steelseries",
+    "Parameter": 4
+  },
+  {
+    "Vendor": 4152,
+    "Product": 8983,
+    "Name": "Arctis GameBuds X",
+    "Protocol": "steelseries",
+    "Parameter": 4
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6682,
+    "Name": "ROG Chakram X (Wireless)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6680,
+    "Name": "ROG Chakram X (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6770,
+    "Name": "ROG Gladius III AimPoint (Wireless)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6768,
+    "Name": "ROG Gladius III AimPoint (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6304,
+    "Name": "ROG Gladius II Wireless",
+    "Protocol": "asus",
+    "Interface": 2,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 25,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6496,
+    "Name": "ROG Keris Wireless",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 25,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6494,
+    "Name": "ROG Keris Wireless (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 25,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6745,
+    "Name": "ROG Keris Wireless EVA Edition",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 25,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6743,
+    "Name": "ROG Keris Wireless EVA Edition (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 25,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6644,
+    "Name": "TUF Gaming M4 Wireless",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6797,
+    "Name": "TUF Gaming M4 Wireless (CN)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6901,
+    "Name": "TX Gaming Mini (Wireless)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6899,
+    "Name": "TX Gaming Mini (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 7255,
+    "Name": "TUF Gaming Mini Miku (Wireless)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 7254,
+    "Name": "TUF Gaming Mini Miku (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6473,
+    "Name": "ROG Strix Impact II (Wireless)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 25,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6471,
+    "Name": "ROG Strix Impact II Wireless (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 25,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6527,
+    "Name": "ROG Gladius III (Wireless)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6525,
+    "Name": "ROG Gladius III (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6924,
+    "Name": "ROG Gladius III EVA-02 Edition (Wireless)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6922,
+    "Name": "ROG Gladius III EVA-02 Edition (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6804,
+    "Name": "ROG Harpe Ace Aim Lab Edition (Wireless)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6802,
+    "Name": "ROG Harpe Ace Aim Lab Edition (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 7015,
+    "Name": "ROG Harpe Ace Extreme (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 7011,
+    "Name": "ROG Harpe Ace Mini (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6864,
+    "Name": "ROG Harpe II Ace (Wireless)",
+    "Protocol": "asus",
+    "Interface": 2,
+    "Report": 3,
+    "ReportSize": 64,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": "col03"
+  },
+  {
+    "Vendor": 2821,
+    "Product": 7273,
+    "Name": "ROG Harpe II Ace (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6760,
+    "Name": "ROG Keris Wireless AimPoint (Wireless)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6758,
+    "Name": "ROG Keris Wireless AimPoint (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6934,
+    "Name": "ROG Keris II Ace (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 7180,
+    "Name": "ROG Keris II Origin (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 7500,
+    "Name": "ROG Keris II Origin KJP (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6408,
+    "Name": "ROG Pugio II (Wireless)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 25,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6406,
+    "Name": "ROG Pugio II (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 25,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6373,
+    "Name": "ROG Chakram (Wireless)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 25,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6371,
+    "Name": "ROG Chakram (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 25,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6521,
+    "Name": "ROG Spatha X (Wireless)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6519,
+    "Name": "ROG Spatha X (Wired)",
+    "Protocol": "asus",
+    "Interface": 0,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6324,
+    "Name": "ROG Strix Carry",
+    "Protocol": "asus",
+    "Interface": 1,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 6,
+    "Scale": 25,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6692,
+    "Name": "ASUS SmartO Mouse MD200",
+    "Protocol": "asus",
+    "Interface": 2,
+    "Report": 0,
+    "ReportSize": 65,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": ""
+  },
+  {
+    "Vendor": 2821,
+    "Product": 6862,
+    "Name": "ROG Omni Receiver Mouse",
+    "Protocol": "asus",
+    "Interface": 2,
+    "Report": 3,
+    "ReportSize": 64,
+    "Offset": 4,
+    "Scale": 1,
+    "ChargeOffset": 9,
+    "Marker": "col03"
+  }
+]

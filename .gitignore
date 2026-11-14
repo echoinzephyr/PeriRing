@@ -1,0 +1,14 @@
+bin/
+obj/
+dist/
+dist-winui/
+.dotnet/
+data/
+*.user
+release/
+winui-desktop.png
+diagnostics.json
+self-test.json
+update-check.json
+*-error.txt
+ui-startup.log
