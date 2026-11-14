@@ -12,6 +12,8 @@ internal static class NativeWindow
     [DllImport("user32.dll")] private static extern IntPtr MonitorFromPoint(Point point, uint flags);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern bool GetMonitorInfoW(IntPtr monitor, ref MonitorInfo info);
     [DllImport("user32.dll")] private static extern uint GetDpiForWindow(IntPtr hwnd);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr FindWindowW(string className, string? windowName);
+    [DllImport("user32.dll")] private static extern int GetSystemMetricsForDpi(int index, uint dpi);
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hwnd, int command);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hwnd);
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
@@ -37,6 +39,11 @@ internal static class NativeWindow
     public static void Show(IntPtr hwnd) { ShowWindow(hwnd, 5); SetForegroundWindow(hwnd); }
     public static void Hide(IntPtr hwnd) => ShowWindow(hwnd, 0);
     public static double Scale(IntPtr hwnd) => Math.Max(1, GetDpiForWindow(hwnd) / 96d);
+    public static int TrayIconSize()
+    {
+        uint dpi = GetDpiForWindow(FindWindowW("Shell_TrayWnd", null));
+        return Math.Clamp(GetSystemMetricsForDpi(49, dpi == 0 ? 96u : dpi), 16, 64);
+    }
     public static void ShowInactive(IntPtr hwnd) => ShowWindow(hwnd, 4);
     public static (int X, int Y) CursorPosition() { GetCursorPos(out var point); return (point.X, point.Y); }
     public static void NoActivate(IntPtr hwnd)

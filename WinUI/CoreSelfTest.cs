@@ -52,6 +52,15 @@ internal static class CoreSelfTest
         checks++;
         if (Math.Abs(half[0].ProgressAngle * 2 - half[1].ProgressAngle) > .001) failures.Add("Arc length is proportional to battery");
         var redDevices = Enumerable.Range(0, 6).Select(i => new Peripheral(i.ToString(), "test", true, i == 5 ? 10 : 80, "test")).ToArray();
+        foreach (int size in new[] { 16, 20, 24, 32, 48 })
+        {
+            using var dpiIcon = TrayIcon.CreateCombined(redDevices, size: size);
+            using var dpiBitmap = dpiIcon.ToBitmap();
+            checks++;
+            if (dpiBitmap.Width != size || dpiBitmap.Height != size || dpiBitmap.GetPixel(0, 0).A != 0)
+                failures.Add($"Native tray icon size and transparency: {size}");
+            dpiBitmap.Save(Path.Combine(AppContext.BaseDirectory, $"combined-dpi-{size}.png"));
+        }
         var priority = new Preferences { DeviceOrder = ["5", "2", "0"] };
         priority.HiddenDevices.Add("2");
         var ordered = priority.Present(redDevices);

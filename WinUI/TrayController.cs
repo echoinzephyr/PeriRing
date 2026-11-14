@@ -16,6 +16,8 @@ internal sealed class TrayController : IDisposable
     public UpdateResult? Update { get; private set; }
     private readonly DispatcherQueue dispatcher = DispatcherQueue.GetForCurrentThread();
     private readonly DispatcherQueueTimer timer;
+    private readonly DispatcherQueueTimer trayDpiTimer;
+    private int trayIconSize;
     private readonly Forms.NotifyIcon manager = new();
     private readonly HashSet<string> alerted = [];
     private readonly CancellationTokenSource lifetime = new();
@@ -53,7 +55,8 @@ internal sealed class TrayController : IDisposable
             var cursor = NativeWindow.CursorPosition();
             if (Math.Abs(cursor.X - hoverOrigin.X) > 22 || Math.Abs(cursor.Y - hoverOrigin.Y) > 22 || menuWindow.IsOpen || window.IsFlyoutVisible) HideHover();
         };
-        manager.Icon = TrayIcon.CreateCombined([]);
+        trayIconSize = NativeWindow.TrayIconSize();
+        manager.Icon = TrayIcon.CreateCombined([], size: trayIconSize);
         manager.Text = AppBrand.Name + " · 正在读取";
         manager.Visible = true;
         File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "Tray icon ready\n");
@@ -69,6 +72,10 @@ internal sealed class TrayController : IDisposable
         timer.Interval = TimeSpan.FromSeconds(Preferences.RefreshSeconds);
         timer.Tick += (_, _) => Refresh();
         timer.Start();
+        trayDpiTimer = dispatcher.CreateTimer();
+        trayDpiTimer.Interval = TimeSpan.FromSeconds(3);
+        trayDpiTimer.Tick += (_, _) => { if (NativeWindow.TrayIconSize() != trayIconSize) UpdateIcons(); };
+        trayDpiTimer.Start();
         SystemEvents.PowerModeChanged += PowerChanged;
         if (preview)
         {
@@ -79,7 +86,7 @@ internal sealed class TrayController : IDisposable
             Updated = DateTimeOffset.Now;
         }
         if (show) window.ShowFlyout();
-        if (!preview) dispatcher.TryEnqueue(Refresh);
+        else if (!preview) dispatcher.TryEnqueue(Refresh);
     }
     private void PowerChanged(object sender, PowerModeChangedEventArgs e)
     { if (e.Mode == PowerModes.Resume && !quitting) dispatcher.TryEnqueue(Refresh); }
@@ -131,8 +138,9 @@ internal sealed class TrayController : IDisposable
     {
         var devices = TrayDevices;
         var old = manager.Icon;
-        manager.Icon = Preferences.RingIcons ? TrayIcon.CreateCombined(devices, Error is not null)
-            : TrayIcon.Create(devices.Select(d => d.DisplayBattery).Where(v => v.HasValue).Min(), devices.Count > 0, Error is not null, false);
+        trayIconSize = NativeWindow.TrayIconSize();
+        manager.Icon = Preferences.RingIcons ? TrayIcon.CreateCombined(devices, Error is not null, trayIconSize)
+            : TrayIcon.Create(devices.Select(d => d.DisplayBattery).Where(v => v.HasValue).Min(), devices.Count > 0, Error is not null, false, trayIconSize);
         old?.Dispose();
         // Use the compact system tooltip whenever all lines fit; larger lists use the same compact layout in WinUI.
         string tooltip = string.Join("\n", devices.Select(d => $"{d.Name.Replace("迈从 · ", "")}: {d.Level}"));
@@ -209,7 +217,7 @@ internal sealed class TrayController : IDisposable
     {
         window.KeepOpenForCapture();
         for (int i = 0; i < 180 && (!Updated.HasValue || Refreshing); i++) await Task.Delay(250);
-        await window.CaptureViewsAsync();
+        await window.CaptureViewsAsync(preview);
     }
     public void Dispose()
     {
@@ -218,6 +226,7 @@ internal sealed class TrayController : IDisposable
         lifetime.Cancel();
         SystemEvents.PowerModeChanged -= PowerChanged;
         timer.Stop();
+        trayDpiTimer.Stop();
         hoverDelay.Stop(); hoverTracking.Stop();
         showWait.Unregister(null);
         showEvent.Dispose();

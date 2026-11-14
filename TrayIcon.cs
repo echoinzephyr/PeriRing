@@ -11,11 +11,12 @@ internal static class TrayIcon
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool DestroyIcon(IntPtr icon);
 
-    internal static Icon CreateCombined(IReadOnlyList<Peripheral> devices, bool error = false)
+    internal static Icon CreateCombined(IReadOnlyList<Peripheral> devices, bool error = false, int size = 32)
     {
-        const int size = 32;
-        using var bitmap = new Bitmap(size, size);
+        size = Math.Clamp(size, 16, 256);
+        using var bitmap = new Bitmap(size * 4, size * 4);
         using var g = Graphics.FromImage(bitmap);
+        g.ScaleTransform(size * 4 / 32f, size * 4 / 32f);
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
         bool light = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "SystemUsesLightTheme", 0) is int value && value == 1;
@@ -52,16 +53,15 @@ internal static class TrayIcon
             using var brush = new SolidBrush(foreground);
             g.DrawString("!", font, brush, 13, 8);
         }
-        var handle = bitmap.GetHicon();
-        try { return (Icon)Icon.FromHandle(handle).Clone(); }
-        finally { DestroyIcon(handle); }
+        return ToIcon(bitmap, size);
     }
 
-    public static Icon Create(int? level, bool connected, bool error = false, bool ring = true)
+    public static Icon Create(int? level, bool connected, bool error = false, bool ring = true, int size = 32)
     {
-        const int size = 32;
-        using var bitmap = new Bitmap(size, size);
+        size = Math.Clamp(size, 16, 256);
+        using var bitmap = new Bitmap(size * 4, size * 4);
         using var g = Graphics.FromImage(bitmap);
+        g.ScaleTransform(size * 4 / 32f, size * 4 / 32f);
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
         if (ring)
@@ -83,9 +83,7 @@ internal static class TrayIcon
                 g.DrawString(error ? "!" : "?", smallFont, center, new RectangleF(4, 3, 24, 25), centerFormat);
             }
             else g.FillPolygon(center, [new(16, 10), new(22, 16), new(16, 22), new(10, 16)]);
-            var ringHandle = bitmap.GetHicon();
-            try { return (Icon)Icon.FromHandle(ringHandle).Clone(); }
-            finally { DestroyIcon(ringHandle); }
+            return ToIcon(bitmap, size);
         }
         Color color = !connected || error ? Color.FromArgb(155, 163, 175)
             : level <= 20 ? Color.FromArgb(255, 108, 108)
@@ -98,7 +96,21 @@ internal static class TrayIcon
         g.DrawString(text, font, brush, new RectangleF(-2, -3, 36, 31), format);
         g.FillRectangle(background, 3, 28, 26, 3);
         if (level.HasValue && !error) g.FillRectangle(brush, 3, 28, 26 * level.Value / 100f, 3);
-        var handle = bitmap.GetHicon();
+        return ToIcon(bitmap, size);
+    }
+
+    private static Icon ToIcon(Bitmap source, int size)
+    {
+        using var target = new Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+        using (var graphics = Graphics.FromImage(target))
+        {
+            graphics.CompositingMode = CompositingMode.SourceCopy;
+            graphics.CompositingQuality = CompositingQuality.HighQuality;
+            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            graphics.DrawImage(source, new Rectangle(0, 0, size, size), new Rectangle(0, 0, source.Width, source.Height), GraphicsUnit.Pixel);
+        }
+        var handle = target.GetHicon();
         try { return (Icon)Icon.FromHandle(handle).Clone(); }
         finally { DestroyIcon(handle); }
     }

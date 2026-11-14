@@ -19,7 +19,7 @@ internal sealed class FlyoutWindow : Window
     private readonly Grid root = new();
     private readonly StackPanel header = new() { Spacing = 12 };
     private readonly StackPanel body = new() { Spacing = 8 };
-    private readonly TextBlock status = new() { FontSize = 12, Opacity = .65, TextTrimming = TextTrimming.CharacterEllipsis };
+    private readonly Button refresh;
     private readonly ScrollViewer scroll = new() { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
     private readonly IntPtr hwnd;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer deactivateTimer;
@@ -56,8 +56,9 @@ internal sealed class FlyoutWindow : Window
         var footer = new Grid { ColumnSpacing = 8 };
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        status.VerticalAlignment = VerticalAlignment.Center;
-        footer.Children.Add(status);
+        refresh = IconButton("\uE72C", "刷新电量", controller.Refresh);
+        refresh.HorizontalAlignment = HorizontalAlignment.Left;
+        footer.Children.Add(refresh);
         var exit = IconButton("\uE7E8", "退出", controller.Quit);
         Grid.SetColumn(exit, 1);
         footer.Children.Add(exit);
@@ -124,6 +125,7 @@ internal sealed class FlyoutWindow : Window
     public void ToggleFlyout() { if (visible) HideFlyout(); else ShowFlyout(); }
     public void ShowFlyout()
     {
+        bool opening = !visible;
         UpdateView();
         double height = page == "devices" ? Math.Clamp(210 + controller.Devices.Count(d => d.Connected) * 80 + (controller.Devices.All(d => !d.Connected) ? 130 : 0), 280, 600)
             : page == "manage" ? Math.Clamp(170 + controller.ManagedDevices.Count * 80, 300, 620) : 620;
@@ -141,6 +143,7 @@ internal sealed class FlyoutWindow : Window
         var storyboard = new Storyboard();
         storyboard.Children.Add(fade);
         storyboard.Begin();
+        if (opening) controller.Refresh();
     }
     private void HideFlyout()
     {
@@ -153,13 +156,18 @@ internal sealed class FlyoutWindow : Window
     public void ShowDeviceManagement() { page = "manage"; UpdateView(); }
     public void ShowUpdates() { page = "updates"; UpdateView(); }
 
-    internal async Task CaptureViewsAsync()
+    internal async Task CaptureViewsAsync(bool preview = false)
     {
         pinned = true;
         ShowFlyout();
         foreach (string view in new[] { "devices", "manage", "settings", "support", "updates" })
         {
             page = view;
+            if (preview)
+            {
+                controller.Preferences.PopupHeight = view switch { "devices" => 530, "settings" => 760, "manage" => 430, "support" => 620, _ => 340 };
+                ShowFlyout();
+            }
             UpdateView();
             await Task.Delay(300);
             var bitmap = new Microsoft.UI.Xaml.Media.Imaging.RenderTargetBitmap();
@@ -195,8 +203,10 @@ internal sealed class FlyoutWindow : Window
             else if (page == "support") BuildSupport();
             else if (page == "updates") BuildUpdates();
             else BuildDevices();
-            status.Text = controller.Refreshing ? "正在读取设备电量…" : controller.Error is not null ? "读取遇到问题，点击刷新重试"
-                : controller.Updated is DateTimeOffset time ? $"更新于 {time:HH:mm:ss} · 每 {controller.Preferences.RefreshSeconds} 秒刷新" : "等待首次读取";
+            refresh.IsEnabled = !controller.Refreshing;
+            string refreshHint = controller.Refreshing ? "正在刷新电量…" : "刷新电量";
+            ToolTipService.SetToolTip(refresh, refreshHint);
+            AutomationProperties.SetName(refresh, refreshHint);
             renderedPage = page;
             DispatcherQueue.TryEnqueue(() => scroll.ChangeView(null, offset, null, true));
         }
@@ -224,26 +234,12 @@ internal sealed class FlyoutWindow : Window
         AutomationProperties.SetName(pin, "保持浮层展开");
         pin.Click += (_, _) => pinned = pin.IsChecked == true;
         Grid.SetColumn(pin, 2); row.Children.Add(pin);
-        var settings = IconButton("\uE713", "设置", ShowSettings);
-        Grid.SetColumn(settings, 3); row.Children.Add(settings);
-        header.Children.Add(row);
-        if (page != "devices") return;
-        var actions = new Grid { ColumnSpacing = 8 };
-        actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        actions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var refresh = new Button
+        if (page != "settings")
         {
-            Content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { new FontIcon { Glyph = "\uE72C", FontSize = 15 }, new TextBlock { Text = controller.Refreshing ? "正在刷新" : "刷新电量" } } },
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            IsEnabled = !controller.Refreshing
-        };
-        refresh.Style = (Style)Application.Current.Resources["AccentButtonStyle"];
-        refresh.Click += (_, _) => controller.Refresh();
-        actions.Children.Add(refresh);
-        var supported = IconButton("\uE946", "支持设备", () => { page = "support"; UpdateView(); });
-        supported.Width = 40; supported.Height = 36;
-        Grid.SetColumn(supported, 1); actions.Children.Add(supported);
-        // Primary actions live in the tray context menu; keep the quick panel compact.
+            var settings = IconButton("\uE713", "设置", ShowSettings);
+            Grid.SetColumn(settings, 3); row.Children.Add(settings);
+        }
+        header.Children.Add(row);
     }
 
     private void BuildDevices()
@@ -309,36 +305,37 @@ internal sealed class FlyoutWindow : Window
 
     private void BuildSettings()
     {
-        body.Children.Add(SectionLabel("托盘"));
-        var manage = new Button { Content = "设备开关与排序", HorizontalAlignment = HorizontalAlignment.Stretch };
-        manage.Click += (_, _) => { page = "manage"; UpdateView(); };
-        body.Children.Add(manage);
-        body.Children.Add(ToggleSetting("环形汇总图标", "每台设备一段弧；超过 5 台时显示 3 段弧，其余用点表示。关闭后显示最低电量数字。", controller.Preferences.RingIcons,
-            value => { controller.Preferences.RingIcons = value; controller.Save(); }));
-        body.Children.Add(ToggleSetting("与官方驱动一致", "采用已核实的厂商分档；设备卡片仍保留原始值", controller.Preferences.PreferVendorDisplay,
-            value => { controller.Preferences.PreferVendorDisplay = value; controller.Save(); }));
-        body.Children.Add(ToggleSetting("低电量提醒", "电量不高于 20% 时提醒", controller.Preferences.LowBatteryAlerts,
-            value => { controller.Preferences.LowBatteryAlerts = value; controller.Save(); }));
-        body.Children.Add(SectionLabel("应用"));
-        body.Children.Add(ToggleSetting("开机启动", "登录 Windows 后在托盘运行", TrayController.StartupEnabled(), controller.SetStartup));
-        var theme = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, ItemsSource = new[] { "跟随系统", "浅色", "深色" }, SelectedIndex = controller.Preferences.Theme switch { "Light" => 1, "Dark" => 2, _ => 0 } };
+        body.Children.Add(SectionLabel("设备与显示"));
+        body.Children.Add(SettingsGroup(
+            SettingsLink("\uE8CB", "设备开关与排序", "选择显示的设备和优先级", () => { page = "manage"; UpdateView(); }),
+            ToggleSetting("\uEA3A", "分段环形图标", null, controller.Preferences.RingIcons,
+                value => { controller.Preferences.RingIcons = value; controller.Save(); }, "关闭后显示最低电量数字"),
+            ToggleSetting("\uE9F9", "与官方驱动一致", "采用已核实的厂商电量分档", controller.Preferences.PreferVendorDisplay,
+                value => { controller.Preferences.PreferVendorDisplay = value; controller.Save(); })));
+
+        var theme = new ComboBox { Width = 108, MinWidth = 0, FontSize = 12, ItemsSource = new[] { "跟随系统", "浅色", "深色" }, SelectedIndex = controller.Preferences.Theme switch { "Light" => 1, "Dark" => 2, _ => 0 } };
+        AutomationProperties.SetName(theme, "外观");
         theme.SelectionChanged += (_, _) =>
         {
             if (updating) return;
             controller.Preferences.Theme = theme.SelectedIndex switch { 1 => "Light", 2 => "Dark", _ => "System" };
             controller.Save();
         };
-        body.Children.Add(Setting("外观", theme));
-        var interval = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, ItemsSource = new[] { "15 秒", "30 秒", "1 分钟", "5 分钟" }, SelectedIndex = Array.IndexOf(new[] { 15, 30, 60, 300 }, controller.Preferences.RefreshSeconds) };
+        var interval = new ComboBox { Width = 108, MinWidth = 0, FontSize = 12, ItemsSource = new[] { "15 秒", "30 秒", "1 分钟", "5 分钟" }, SelectedIndex = Array.IndexOf(new[] { 15, 30, 60, 300 }, controller.Preferences.RefreshSeconds) };
+        AutomationProperties.SetName(interval, "后台刷新间隔");
         if (interval.SelectedIndex < 0) interval.SelectedIndex = 2;
         interval.SelectionChanged += (_, _) => { if (!updating && interval.SelectedIndex >= 0) { controller.Preferences.RefreshSeconds = new[] { 15, 30, 60, 300 }[interval.SelectedIndex]; controller.Save(); } };
-        body.Children.Add(Setting("刷新间隔", interval));
-        var support = new Button { Content = "支持设备与读取状态", HorizontalAlignment = HorizontalAlignment.Stretch };
-        support.Click += (_, _) => { page = "support"; UpdateView(); };
-        body.Children.Add(support);
-        var updates = new Button { Content = $"检查更新 · 当前 v{UpdateService.CurrentLabel}", HorizontalAlignment = HorizontalAlignment.Stretch };
-        updates.Click += (_, _) => controller.CheckForUpdates();
-        body.Children.Add(updates);
+        body.Children.Add(SectionLabel("常规"));
+        body.Children.Add(SettingsGroup(
+            ToggleSetting("\uE7E7", "低电量提醒", "电量不高于 20% 时提醒", controller.Preferences.LowBatteryAlerts,
+                value => { controller.Preferences.LowBatteryAlerts = value; controller.Save(); }),
+            ToggleSetting("\uE7E8", "开机启动", null, TrayController.StartupEnabled(), controller.SetStartup),
+            SettingsRow("\uE790", "外观", null, theme),
+            SettingsRow("\uE72C", "后台刷新", null, interval)));
+        body.Children.Add(SectionLabel("关于"));
+        body.Children.Add(SettingsGroup(
+            SettingsLink("\uE946", "支持设备", null, () => { page = "support"; UpdateView(); }),
+            SettingsLink("\uE895", "检查更新", $"当前版本 v{UpdateService.CurrentLabel}", controller.CheckForUpdates)));
     }
 
     private void BuildUpdates()
@@ -412,14 +409,14 @@ internal sealed class FlyoutWindow : Window
     private void BuildSupport()
     {
         body.Children.Add(new InfoBar { IsOpen = true, IsClosable = false, Severity = InfoBarSeverity.Informational,
-            Message = "迈从 AX5 V2 已实测。其余适配已接入并检查解析逻辑，仍需对应硬件实测。" });
+            Message = "迈从 AX5 V2、A7 Ultra(RE) 已实测。其余适配仍需对应硬件验证。" });
         foreach (var provider in BatteryService.Providers.Where(p => p is not UsbProvider))
         {
             var state = controller.Providers.FirstOrDefault(p => p.Name == provider.Name);
             body.Children.Add(SupportCard(provider.Name, provider.Coverage, state?.Warning ?? (state is null ? "尚未读取" : $"识别到 {state.DeviceCount} 个设备")));
         }
         foreach (var adapter in UsbProvider.Adapters)
-            body.Children.Add(SupportCard(adapter.Name, adapter.Models, adapter is MchoseAdapter ? "AX5 V2 已实测" : "已接入 · 硬件待实测"));
+            body.Children.Add(SupportCard(adapter.Name, adapter.Models, adapter is MchoseAdapter ? "AX5 V2、A7 Ultra(RE) 已实测" : "已接入 · 硬件待实测"));
     }
     private Border SupportCard(string name, string coverage, string state)
     {
@@ -429,21 +426,49 @@ internal sealed class FlyoutWindow : Window
         content.Children.Add(new TextBlock { Text = state, FontSize = 11, Foreground = Accent, TextWrapping = TextWrapping.Wrap });
         return Card(content);
     }
-    private Border ToggleSetting(string title, string description, bool enabled, Action<bool> changed)
+    private Grid ToggleSetting(string glyph, string title, string? description, bool enabled, Action<bool> changed, string? hint = null)
     {
-        var toggle = new ToggleSwitch { Header = title, IsOn = enabled, OnContent = "已开启", OffContent = "已关闭" };
+        var toggle = new ToggleSwitch { IsOn = enabled, OnContent = "", OffContent = "", MinWidth = 0, MinHeight = 0, Height = 28, Width = 44, VerticalAlignment = VerticalAlignment.Center };
+        AutomationProperties.SetName(toggle, title);
         toggle.Toggled += (_, _) => { if (!updating) changed(toggle.IsOn); };
-        var content = new StackPanel { Spacing = 6 };
-        content.Children.Add(toggle);
-        content.Children.Add(new TextBlock { Text = description, FontSize = 11, Opacity = .65, TextWrapping = TextWrapping.Wrap });
-        return Card(content);
+        var row = SettingsRow(glyph, title, description, toggle);
+        if (hint is not null) ToolTipService.SetToolTip(row, hint);
+        return row;
     }
-    private Border Setting(string label, UIElement control)
+    private Grid SettingsRow(string glyph, string title, string? description, FrameworkElement control)
     {
-        var content = new StackPanel { Spacing = 8 };
-        content.Children.Add(new TextBlock { Text = label, FontSize = 13, FontWeight = FontWeights.SemiBold });
-        content.Children.Add(control);
-        return Card(content);
+        var row = new Grid { ColumnSpacing = 10, Padding = new Thickness(12, 8, 12, 8), MinHeight = 50 };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.Children.Add(new FontIcon { Glyph = glyph, FontSize = 16, Opacity = .8, VerticalAlignment = VerticalAlignment.Center });
+        var text = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        text.Children.Add(new TextBlock { Text = title, FontSize = 13, TextWrapping = TextWrapping.Wrap });
+        if (description is not null) text.Children.Add(new TextBlock { Text = description, FontSize = 11, Opacity = .6, TextWrapping = TextWrapping.Wrap, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis });
+        Grid.SetColumn(text, 1); row.Children.Add(text);
+        Grid.SetColumn(control, 2); row.Children.Add(control);
+        return row;
+    }
+    private Button SettingsLink(string glyph, string title, string? description, Action clicked)
+    {
+        var button = new Button { Content = SettingsRow(glyph, title, description, new FontIcon { Glyph = "\uE76C", FontSize = 12, Opacity = .6 }),
+            HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Padding = new Thickness(0), BorderThickness = new Thickness(0), Background = new SolidColorBrush(Colors.Transparent), CornerRadius = new CornerRadius(6) };
+        AutomationProperties.SetName(button, title);
+        button.Click += (_, _) => clicked();
+        return button;
+    }
+    private Border SettingsGroup(params UIElement[] rows)
+    {
+        var content = new StackPanel();
+        foreach (var row in rows)
+        {
+            if (content.Children.Count > 0) content.Children.Add(new Border { Height = 1, Margin = new Thickness(12, 0, 12, 0), Background = new SolidColorBrush(Dark ? Color.FromArgb(24, 255, 255, 255) : Color.FromArgb(18, 0, 0, 0)) });
+            content.Children.Add(row);
+        }
+        var group = Card(content);
+        group.Padding = new Thickness(0);
+        return group;
     }
     private Border Card(UIElement content) => new()
     {

@@ -3,7 +3,7 @@ namespace BatteryDisplay;
 internal sealed class MchoseAdapter : IHidBatteryAdapter
 {
     public string Name => "迈从";
-    public string Models => "AX5 V2、M7 / L7 系列、A7 V2 系列（Realtek 接收器）";
+    public string Models => "AX5 V2、A7 Ultra(RE)、M7 / L7 系列、A7 V2 系列（Realtek 接收器）";
     public bool Matches(HidDescriptor d) => d.Caps.UsagePage == 0xFF01 && d.Caps.FeatureLength >= 21 &&
         ((d.Vendor == 0x5253 && d.Product is 0x1020 or 0x0031 or 0x00B0) ||
         (d.Vendor == 0x3837 && d.Product is 0x4018 or 0x4023 or 0x4019 or 0x4021 or 0x100A or 0x100B));

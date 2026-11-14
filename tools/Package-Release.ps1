@@ -1,20 +1,22 @@
-param([string]$Version = '0.1.0')
+param([string]$Version)
 $ErrorActionPreference = 'Stop'
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $projectXml = [xml](Get-Content (Join-Path $projectRoot 'BatteryDisplay.csproj') -Raw)
+if (!$Version) { $Version = $projectXml.Project.PropertyGroup.Version }
 if ($projectXml.Project.PropertyGroup.Version -ne $Version) { throw '打包版本与项目版本不一致。' }
 $stage = Join-Path $projectRoot ('.dotnet\package-' + [guid]::NewGuid().ToString('N'))
 $releaseDirectory = Join-Path $projectRoot 'release'
 New-Item -ItemType Directory -Force -Path $releaseDirectory | Out-Null
 & (Join-Path $projectRoot 'build.ps1') -PublishDirectory $stage
 $required = @('BatteryDisplay.exe', 'BatteryDisplay.dll', 'BatteryDisplay.deps.json', 'BatteryDisplay.runtimeconfig.json',
-    'resources.pri', 'App.xbf', 'periring.ico', 'periring-64.png', 'README.md', 'SUPPORTED-DEVICES.md', 'THIRD-PARTY-NOTICES.md', 'LICENSE')
+    'resources.pri', 'App.xbf', 'periring.ico', 'periring-64.png', 'README.md', 'SUPPORTED-DEVICES.md', 'THIRD-PARTY-NOTICES.md', 'LICENSE',
+    'Assets\periring.png', 'docs\images\devices.png', 'docs\images\device-order.png', 'docs\images\settings.png')
 foreach ($name in $required) {
     if (!(Test-Path -LiteralPath (Join-Path $stage $name))) { throw "发布文件缺失：$name" }
 }
 $unexpected = Get-ChildItem -LiteralPath $stage -Recurse -File | Where-Object {
     ($_.Extension -notin @('.dll', '.exe', '.json', '.pri', '.xbf', '.ico', '.png', '.md', '.pdb') -and $_.Name -ne 'LICENSE') -or
-        $_.Name -match 'diagnostic|settings|self-test|update-check|error|startup\.log|^winui-|^combined-|^icon-'
+        $_.Name -match '^(diagnostics|settings|self-test|update-check)\.json$|-error\.txt$|^ui-startup\.log$|^winui-|^combined-|^icon-'
 }
 if ($unexpected) { throw ('发布目录包含非发布文件：' + ($unexpected.Name -join ', ')) }
 $zip = Join-Path $releaseDirectory "PeriRing-v$Version-win-x64.zip"

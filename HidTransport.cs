@@ -80,7 +80,7 @@ internal sealed class UsbProvider : IBatteryProvider
         new AsusAdapter(), new HyperXAdapter(), new KeychronAdapter(), new CorsairAdapter(), new SonixKeyboardAdapter()];
     public string Name => "USB / 2.4G 外设";
     public string Coverage => string.Join("、", Adapters.Select(a => a.Name));
-    public string Verification => "迈从 AX5 V2 已实测；其余按公开协议接入、待硬件实测";
+    public string Verification => "迈从 AX5 V2、A7 Ultra(RE) 已实测；其余按公开协议接入、待硬件实测";
 
     public async Task<List<Peripheral>> ReadAsync(CancellationToken token)
     {
