@@ -8,6 +8,24 @@ internal static class NativeWindow
     [StructLayout(LayoutKind.Sequential)] private struct Point { public int X, Y; }
     [StructLayout(LayoutKind.Sequential)] private struct Rect { public int Left, Top, Right, Bottom; }
     [StructLayout(LayoutKind.Sequential)] private struct MonitorInfo { public int Size; public Rect Monitor, Work; public uint Flags; }
+    [StructLayout(LayoutKind.Sequential)] private struct MinMaxInfo
+    {
+        public Point Reserved, MaxSize, MaxPosition, MinTrackSize, MaxTrackSize;
+    }
+    private delegate IntPtr SubclassProc(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam, nuint id, nuint data);
+    private static readonly SubclassProc minimumSizeProc = MinimumSizeMessage;
+    private static readonly Dictionary<IntPtr, (double Width, double Height)> minimumSizes = [];
+    private const uint GetMinMaxInfoMessage = 0x0024;
+    private const nuint MinimumSizeSubclassId = 0x5052;
+    [DllImport("comctl32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowSubclass(IntPtr hwnd, SubclassProc proc, nuint id, nuint data);
+    [DllImport("comctl32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool RemoveWindowSubclass(IntPtr hwnd, SubclassProc proc, nuint id);
+    [DllImport("comctl32.dll")] private static extern IntPtr DefSubclassProc(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll", EntryPoint = "SendMessageW")]
+    private static extern IntPtr SendMinMaxMessage(IntPtr hwnd, uint message, IntPtr wParam, ref MinMaxInfo info);
     [DllImport("user32.dll")] private static extern bool GetCursorPos(out Point point);
     [DllImport("user32.dll")] private static extern IntPtr MonitorFromPoint(Point point, uint flags);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern bool GetMonitorInfoW(IntPtr monitor, ref MonitorInfo info);
@@ -15,6 +33,8 @@ internal static class NativeWindow
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr FindWindowW(string className, string? windowName);
     [DllImport("user32.dll")] private static extern int GetSystemMetricsForDpi(int index, uint dpi);
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hwnd, int command);
+    [DllImport("user32.dll", EntryPoint = "IsWindowVisible")] private static extern bool IsWindowVisibleNative(IntPtr hwnd);
+    public static bool IsVisible(IntPtr hwnd) => IsWindowVisibleNative(hwnd);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hwnd);
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint process);
@@ -30,6 +50,41 @@ internal static class NativeWindow
     {
         int round = 2;
         DwmSetWindowAttribute(hwnd, 33, ref round, sizeof(int));
+    }
+    public static void SetMinimumSize(IntPtr hwnd, double width, double height)
+    {
+        // Let the native sizing loop clamp the dragged edge before the window changes.
+        // Resizing again from AppWindow.Changed causes left/top drags to move the opposite edge.
+        minimumSizes[hwnd] = (width, height);
+        if (!SetWindowSubclass(hwnd, minimumSizeProc, MinimumSizeSubclassId, 0))
+        {
+            minimumSizes.Remove(hwnd);
+            throw new InvalidOperationException("无法设置浮层的最小尺寸");
+        }
+    }
+    private static IntPtr MinimumSizeMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam, nuint id, nuint data)
+    {
+        var result = DefSubclassProc(hwnd, message, wParam, lParam);
+        if (message == GetMinMaxInfoMessage && lParam != IntPtr.Zero && minimumSizes.TryGetValue(hwnd, out var minimum))
+        {
+            var info = Marshal.PtrToStructure<MinMaxInfo>(lParam);
+            double scale = Scale(hwnd);
+            info.MinTrackSize.X = Math.Max(info.MinTrackSize.X, (int)Math.Ceiling(minimum.Width * scale));
+            info.MinTrackSize.Y = Math.Max(info.MinTrackSize.Y, (int)Math.Ceiling(minimum.Height * scale));
+            Marshal.StructureToPtr(info, lParam, false);
+        }
+        else if (message == 0x0082) // WM_NCDESTROY
+        {
+            minimumSizes.Remove(hwnd);
+            RemoveWindowSubclass(hwnd, minimumSizeProc, id);
+        }
+        return result;
+    }
+    internal static Windows.Graphics.SizeInt32 MinimumTrackingSize(IntPtr hwnd)
+    {
+        var info = new MinMaxInfo();
+        SendMinMaxMessage(hwnd, GetMinMaxInfoMessage, IntPtr.Zero, ref info);
+        return new(info.MinTrackSize.X, info.MinTrackSize.Y);
     }
     public static void SetDark(IntPtr hwnd, bool dark)
     {

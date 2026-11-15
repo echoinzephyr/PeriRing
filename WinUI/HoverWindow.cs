@@ -41,7 +41,7 @@ internal sealed class HoverWindow : Window
         for (int i = 0; i < devices.Count; i++)
         {
             var d = devices[i];
-            var line = new TextBlock { Text = $"{d.Name.Replace("迈从 · ", "")}: {d.Level}", FontSize = 12, MaxWidth = 390, TextWrapping = TextWrapping.Wrap };
+            var line = new TextBlock { Text = $"{d.Name.Replace("迈从 · ", "")}: {d.TooltipLevel}", FontSize = 12, MaxWidth = 390, TextWrapping = TextWrapping.Wrap };
             if (d.GaugeValue <= 20) line.Foreground = new SolidColorBrush(Color.FromArgb(255, 246, 87, 94));
             list.Children.Add(line);
         }

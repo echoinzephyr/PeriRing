@@ -21,6 +21,7 @@ internal sealed class TrayController : IDisposable
     private readonly Forms.NotifyIcon manager = new();
     private readonly HashSet<string> alerted = [];
     private readonly CancellationTokenSource lifetime = new();
+    private readonly BatteryHistory batteryHistory = BatteryHistory.Load();
     private readonly EventWaitHandle showEvent = new(false, EventResetMode.AutoReset, "Local\\BatteryDisplay.ShowWindow");
     private readonly RegisteredWaitHandle showWait;
     private readonly FlyoutWindow window;
@@ -117,7 +118,8 @@ internal sealed class TrayController : IDisposable
             timeout.CancelAfter(TimeSpan.FromSeconds(35));
             var report = await BatteryService.ScanAsync(timeout.Token);
             if (quitting) return;
-            Devices = report.Devices;
+            Devices = batteryHistory.Apply(report.Devices, DateTimeOffset.Now);
+            batteryHistory.Save();
             Providers = report.Providers;
             bool added = false;
             foreach (var d in ManagedDevices)
@@ -143,16 +145,17 @@ internal sealed class TrayController : IDisposable
             : TrayIcon.Create(devices.Select(d => d.DisplayBattery).Where(v => v.HasValue).Min(), devices.Count > 0, Error is not null, false, trayIconSize);
         old?.Dispose();
         // Use the compact system tooltip whenever all lines fit; larger lists use the same compact layout in WinUI.
-        string tooltip = string.Join("\n", devices.Select(d => $"{d.Name.Replace("迈从 · ", "")}: {d.Level}"));
+        string tooltip = string.Join("\n", devices.Select(d => $"{d.Name.Replace("迈从 · ", "")}: {d.TooltipLevel}"));
         if (devices.Count == 0) tooltip = AppBrand.Name + "：暂无可显示电量的在线设备";
         manager.Text = tooltip.Length <= 127 ? tooltip : "";
         manager.Visible = true;
         if (hoverWindow.IsVisible) hoverWindow.ShowValues(devices, Preferences);
         foreach (var d in devices)
         {
-            if (Error is null && Preferences.LowBatteryAlerts && !d.Charging && d.GaugeValue <= 20 && alerted.Add(d.Id))
+            if (Error is null && Preferences.LowBatteryAlerts && !d.IsCached && !d.Charging && d.GaugeValue <= 20
+                && alerted.Add(d.Id))
                 manager.ShowBalloonTip(5000, AppBrand.Name + " · 电量偏低", $"{d.Name}：{d.Level}", Forms.ToolTipIcon.Warning);
-            if (d.GaugeValue > 25) alerted.Remove(d.Id);
+            if (!d.IsCached && d.GaugeValue > 25) alerted.Remove(d.Id);
         }
     }
     public void ToggleDevice(string id, bool visible)
@@ -195,7 +198,7 @@ internal sealed class TrayController : IDisposable
         catch (Exception ex) { Error = "设置保存失败：" + ex.Message; }
         timer.Interval = TimeSpan.FromSeconds(Preferences.RefreshSeconds);
         UpdateIcons();
-        window.UpdateView();
+        window.ApplySettings();
     }
     public static bool StartupEnabled()
     {
@@ -219,6 +222,7 @@ internal sealed class TrayController : IDisposable
         for (int i = 0; i < 180 && (!Updated.HasValue || Refreshing); i++) await Task.Delay(250);
         await window.CaptureViewsAsync(preview);
     }
+    public Task RunInteractionChecksAsync() => window.RunInteractionChecksAsync();
     public void Dispose()
     {
         if (quitting) return;

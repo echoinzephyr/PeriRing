@@ -15,7 +15,9 @@ internal static class SegmentedRing
         if (count <= 5)
         {
             float sector = 360f / count;
-            float gap = count == 1 ? 9 : 13;
+            // Rounded ends consume about 18 degrees at this stroke width.
+            // Leave a visible opening even after downsampling to a 16-pixel tray icon.
+            float gap = count == 1 ? 26 : 34;
             return devices.Select((d, index) => new RingSegment(index, false,
                 -90 + index * sector + gap / 2, sector - gap, d.GaugeValue)).ToList();
         }
@@ -24,9 +26,10 @@ internal static class SegmentedRing
         int dots = count - 3;
         float arcSector = 360f / (3 + dots * dotWeight);
         float dotSector = arcSector * dotWeight;
+        float arcGap = Math.Min(34, arcSector * .6f);
         var result = new List<RingSegment>();
         for (int i = 0; i < 3; i++)
-            result.Add(new(i, false, -90 + i * arcSector + 6.5f, arcSector - 13, devices[i].GaugeValue));
+            result.Add(new(i, false, -90 + i * arcSector + arcGap / 2, arcSector - arcGap, devices[i].GaugeValue));
         for (int i = 0; i < dots; i++)
             result.Add(new(i + 3, true, -90 + 3 * arcSector + (i + .5f) * dotSector, 0, devices[i + 3].GaugeValue));
         return result;

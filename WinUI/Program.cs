@@ -82,9 +82,10 @@ public sealed partial class BatteryApplication : Application
                 return;
             }
             File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "Creating tray controller\n");
-            controller = new TrayController(args.Contains("--show") || args.Contains("--ui-preview") || args.Contains("--capture-ui"), args.Contains("--ui-preview"));
+            controller = new TrayController(args.Contains("--show") || args.Contains("--ui-preview") || args.Contains("--capture-ui") || args.Contains("--ui-self-test"), args.Contains("--ui-preview") || args.Contains("--ui-self-test"));
             File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "Tray controller ready\n");
-            if (args.Contains("--capture-ui")) CaptureAndExit();
+            if (args.Contains("--ui-self-test")) VerifyAndExit();
+            else if (args.Contains("--capture-ui")) CaptureAndExit();
         }
         catch (Exception ex)
         {
@@ -97,6 +98,12 @@ public sealed partial class BatteryApplication : Application
     {
         try { await controller!.CaptureAsync(); }
         catch (Exception ex) { File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "capture-error.txt"), ex.ToString()); Environment.ExitCode = 1; }
+        finally { controller?.Quit(); }
+    }
+    private async void VerifyAndExit()
+    {
+        try { await controller!.RunInteractionChecksAsync(); }
+        catch (Exception ex) { File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "ui-self-test-error.txt"), ex.ToString()); Environment.ExitCode = 1; }
         finally { controller?.Quit(); }
     }
 }

@@ -19,6 +19,10 @@ internal sealed class FlyoutWindow : Window
     private readonly Grid root = new();
     private readonly StackPanel header = new() { Spacing = 12 };
     private readonly StackPanel body = new() { Spacing = 8 };
+    private readonly SolidColorBrush cardBackground = new();
+    private readonly SolidColorBrush cardBorder = new();
+    private readonly SolidColorBrush separator = new();
+    private readonly Windows.UI.ViewManagement.UISettings uiSettings = new();
     private readonly Button refresh;
     private readonly ScrollViewer scroll = new() { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
     private readonly IntPtr hwnd;
@@ -29,6 +33,16 @@ internal sealed class FlyoutWindow : Window
     private bool updating;
     private bool disconnectedExpanded;
     private string renderedPage = "";
+    private string renderedDeviceState = "";
+    private object? renderedProviders;
+    private string? renderedError;
+    private string renderedManagement = "";
+    private UpdateResult? renderedUpdate;
+    private bool renderedCheckingUpdates;
+    private bool renderedRefreshing;
+    private Storyboard? windowMotion;
+    private Storyboard? pageMotion;
+    private int motionRevision;
     private bool positioning;
     private Windows.Graphics.SizeInt32 plannedSize;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer resizeSaveTimer;
@@ -78,6 +92,7 @@ internal sealed class FlyoutWindow : Window
         string icon = Path.Combine(AppContext.BaseDirectory, AppBrand.IconFileName);
         if (File.Exists(icon)) AppWindow.SetIcon(icon);
         NativeWindow.Configure(hwnd);
+        NativeWindow.SetMinimumSize(hwnd, 340, 240);
         AppWindow.Closing += (_, e) => { if (!AllowClose) { e.Cancel = true; HideFlyout(); } };
         deactivateTimer = DispatcherQueue.CreateTimer();
         deactivateTimer.Interval = TimeSpan.FromMilliseconds(140);
@@ -96,12 +111,6 @@ internal sealed class FlyoutWindow : Window
         {
             if (!e.DidSizeChange || positioning || !visible || (AppWindow.Size.Width == plannedSize.Width && AppWindow.Size.Height == plannedSize.Height)) return;
             double scale = NativeWindow.Scale(hwnd);
-            int minWidth = (int)(340 * scale), minHeight = (int)(240 * scale);
-            if (AppWindow.Size.Width < minWidth || AppWindow.Size.Height < minHeight)
-            {
-                AppWindow.Resize(new Windows.Graphics.SizeInt32(Math.Max(minWidth, AppWindow.Size.Width), Math.Max(minHeight, AppWindow.Size.Height)));
-                return;
-            }
             controller.Preferences.PopupWidth = AppWindow.Size.Width / scale;
             controller.Preferences.PopupHeight = AppWindow.Size.Height / scale;
             resizeSaveTimer.Stop(); resizeSaveTimer.Start();
@@ -120,41 +129,65 @@ internal sealed class FlyoutWindow : Window
     {
         root.RequestedTheme = controller.Preferences.Theme switch { "Dark" => ElementTheme.Dark, "Light" => ElementTheme.Light, _ => ElementTheme.Default };
         root.Background = new SolidColorBrush(Dark ? Color.FromArgb(195, 26, 26, 26) : Color.FromArgb(195, 247, 247, 247));
+        cardBackground.Color = CardColor;
+        cardBorder.Color = Dark ? Color.FromArgb(35, 255, 255, 255) : Color.FromArgb(18, 0, 0, 0);
+        separator.Color = Dark ? Color.FromArgb(24, 255, 255, 255) : Color.FromArgb(18, 0, 0, 0);
         NativeWindow.SetDark(hwnd, Dark);
     }
     public void ToggleFlyout() { if (visible) HideFlyout(); else ShowFlyout(); }
     public void ShowFlyout()
     {
         bool opening = !visible;
-        UpdateView();
-        double height = page == "devices" ? Math.Clamp(210 + controller.Devices.Count(d => d.Connected) * 80 + (controller.Devices.All(d => !d.Connected) ? 130 : 0), 280, 600)
-            : page == "manage" ? Math.Clamp(170 + controller.ManagedDevices.Count * 80, 300, 620) : 620;
-        positioning = true;
-        NativeWindow.Position(AppWindow, hwnd, controller.Preferences.PopupWidth, controller.Preferences.PopupHeight > 0 ? controller.Preferences.PopupHeight : height);
-        plannedSize = AppWindow.Size;
-        positioning = false;
+        if (opening)
+        {
+            motionRevision++;
+            windowMotion?.Stop();
+            root.Opacity = 1;
+        }
+        UpdateView(opening);
+        if (opening)
+        {
+            double height = page == "devices" ? Math.Clamp(210 + controller.Devices.Count(d => d.IsPresent) * 80 + (controller.Devices.All(d => !d.IsPresent) ? 130 : 0), 280, 600)
+                : page == "manage" ? Math.Clamp(170 + controller.ManagedDevices.Count * 80, 300, 620) : 620;
+            PositionFlyout(controller.Preferences.PopupWidth, controller.Preferences.PopupHeight > 0 ? controller.Preferences.PopupHeight : height);
+        }
         AppWindow.Show();
         Activate();
         NativeWindow.Show(hwnd);
         visible = true;
-        var fade = new DoubleAnimation { From = 0, To = 1, Duration = new Duration(TimeSpan.FromMilliseconds(140)) };
-        Storyboard.SetTarget(fade, root);
-        Storyboard.SetTargetProperty(fade, "Opacity");
-        var storyboard = new Storyboard();
-        storyboard.Children.Add(fade);
-        storyboard.Begin();
+        if (opening) windowMotion = Animate(root, true, 160);
         if (opening) controller.Refresh();
     }
     private void HideFlyout()
     {
+        if (!visible) return;
         visible = false;
         deactivateTimer.Stop();
-        AppWindow.Hide();
+        windowMotion?.Stop();
+        int revision = ++motionRevision;
+        windowMotion = Animate(root, false, 100, () =>
+        {
+            if (revision != motionRevision || visible || AllowClose) return;
+            AppWindow.Hide();
+            windowMotion?.Stop();
+            root.Opacity = 1;
+        });
     }
     public void ShowSettings() { page = "settings"; UpdateView(); }
     public void ShowSupport() { page = "support"; UpdateView(); }
     public void ShowDeviceManagement() { page = "manage"; UpdateView(); }
     public void ShowUpdates() { page = "updates"; UpdateView(); }
+
+    private void PositionFlyout(double width, double height)
+    {
+        positioning = true;
+        try
+        {
+            NativeWindow.Position(AppWindow, hwnd, width, height);
+            plannedSize = AppWindow.Size;
+        }
+        finally { positioning = false; }
+    }
 
     internal async Task CaptureViewsAsync(bool preview = false)
     {
@@ -166,7 +199,7 @@ internal sealed class FlyoutWindow : Window
             if (preview)
             {
                 controller.Preferences.PopupHeight = view switch { "devices" => 530, "settings" => 760, "manage" => 430, "support" => 620, _ => 340 };
-                ShowFlyout();
+                PositionFlyout(controller.Preferences.PopupWidth, controller.Preferences.PopupHeight);
             }
             UpdateView();
             await Task.Delay(300);
@@ -188,7 +221,25 @@ internal sealed class FlyoutWindow : Window
         }
     }
 
-    public void UpdateView()
+    public void ApplySettings() => UpdateView();
+
+    private Storyboard? Animate(FrameworkElement target, bool entering, int milliseconds, Action? completed = null)
+    {
+        target.Opacity = 1;
+        target.RenderTransform = null;
+        if (!uiSettings.AnimationsEnabled) { completed?.Invoke(); return null; }
+        var duration = new Duration(TimeSpan.FromMilliseconds(milliseconds));
+        var easing = new CubicEase { EasingMode = entering ? EasingMode.EaseOut : EasingMode.EaseIn };
+        var fade = new DoubleAnimation { From = entering ? .15 : 1, To = entering ? 1 : 0, Duration = duration, EasingFunction = easing };
+        Storyboard.SetTarget(fade, target); Storyboard.SetTargetProperty(fade, "Opacity");
+        var animation = new Storyboard();
+        animation.Children.Add(fade);
+        if (completed is not null) animation.Completed += (_, _) => completed();
+        animation.Begin();
+        return animation;
+    }
+
+    public void UpdateView(bool force = false)
     {
         if (updating) return;
         updating = true;
@@ -196,18 +247,41 @@ internal sealed class FlyoutWindow : Window
         try
         {
             ApplyTheme();
-            BuildHeader();
+            refresh.IsEnabled = !controller.Refreshing;
+            string refreshHint = controller.Refreshing ? "正在刷新电量…" : "刷新电量";
+            ToolTipService.SetToolTip(refresh, refreshHint);
+            AutomationProperties.SetName(refresh, refreshHint);
+            bool pageChanged = renderedPage != page;
+            string deviceState = page == "devices" ? string.Join("\n", controller.PresentedDevices.Select(d => $"{d.Id}|{d.Name}|{d.Transport}|{d.Connected}|{d.Level}|{d.Charging}|{d.IsCached}|{d.Note}")) : "";
+            string management = page == "manage" ? string.Join("\n", controller.ManagedDevices.Select(d => $"{d.Id}|{d.Level}|{d.IsCached}|{d.Connected}")) : "";
+            bool changed = page switch
+            {
+                "settings" => false,
+                "updates" => renderedUpdate != controller.Update || renderedCheckingUpdates != controller.CheckingUpdates,
+                "support" => !ReferenceEquals(renderedProviders, controller.Providers),
+                "manage" => renderedManagement != management,
+                _ => renderedDeviceState != deviceState || renderedError != controller.Error
+                    || controller.Devices.Count == 0 && renderedRefreshing != controller.Refreshing
+            };
+            if (!force && !pageChanged && !changed) return;
+            pageMotion?.Stop();
+            body.Opacity = 1;
+            if (pageChanged || force) BuildHeader();
             body.Children.Clear();
             if (page == "settings") BuildSettings();
             else if (page == "manage") BuildManagement();
             else if (page == "support") BuildSupport();
             else if (page == "updates") BuildUpdates();
             else BuildDevices();
-            refresh.IsEnabled = !controller.Refreshing;
-            string refreshHint = controller.Refreshing ? "正在刷新电量…" : "刷新电量";
-            ToolTipService.SetToolTip(refresh, refreshHint);
-            AutomationProperties.SetName(refresh, refreshHint);
             renderedPage = page;
+            renderedDeviceState = deviceState;
+            renderedProviders = controller.Providers;
+            renderedError = controller.Error;
+            renderedManagement = management;
+            renderedUpdate = controller.Update;
+            renderedCheckingUpdates = controller.CheckingUpdates;
+            renderedRefreshing = controller.Refreshing;
+            if (pageChanged && visible) pageMotion = Animate(body, true, 120);
             DispatcherQueue.TryEnqueue(() => scroll.ChangeView(null, offset, null, true));
         }
         finally { updating = false; }
@@ -247,8 +321,9 @@ internal sealed class FlyoutWindow : Window
         var devices = controller.PresentedDevices;
         if (controller.Error is not null)
             body.Children.Add(new InfoBar { IsOpen = true, IsClosable = false, Severity = InfoBarSeverity.Warning, Message = controller.Error });
-        var connected = devices.Where(d => d.Connected).ToList();
-        body.Children.Add(SectionLabel($"已连接 · {connected.Count}"));
+        var connected = devices.Where(d => d.IsPresent).ToList();
+        int cached = connected.Count(d => d.IsCached);
+        body.Children.Add(SectionLabel(cached == 0 ? $"已连接 · {connected.Count}" : $"已连接 · {connected.Count - cached}   上次读数 · {cached}"));
         foreach (var d in connected) body.Children.Add(DeviceCard(d));
         if (connected.Count == 0)
         {
@@ -258,7 +333,7 @@ internal sealed class FlyoutWindow : Window
             empty.Children.Add(new TextBlock { Text = "支持蓝牙及已适配的无线接收器", FontSize = 12, Opacity = .6, TextAlignment = TextAlignment.Center });
             body.Children.Add(Card(empty));
         }
-        var other = devices.Where(d => !d.Connected).ToList();
+        var other = devices.Where(d => !d.IsPresent).ToList();
         if (other.Count > 0)
         {
             var list = new StackPanel { Spacing = 6 };
@@ -282,16 +357,17 @@ internal sealed class FlyoutWindow : Window
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var ring = new Grid { Width = 42, Height = 42, VerticalAlignment = VerticalAlignment.Center };
         ring.Children.Add(new ProgressRing { IsIndeterminate = false, Value = d.GaugeValue ?? 0, Minimum = 0, Maximum = 100, Width = 42, Height = 42,
-            Foreground = d.Connected && d.GaugeValue <= 20 ? new SolidColorBrush(Color.FromArgb(255, 231, 133, 75)) : Accent, Opacity = d.Connected ? 1 : .45 });
-        ring.Children.Add(new FontIcon { Glyph = DeviceGlyph(d), FontSize = 16, Opacity = d.Connected ? .9 : .45 });
+            Foreground = d.IsPresent && d.GaugeValue <= 20 ? new SolidColorBrush(Color.FromArgb(255, 231, 133, 75)) : Accent, Opacity = d.IsPresent ? 1 : .45 });
+        ring.Children.Add(new FontIcon { Glyph = DeviceGlyph(d), FontSize = 16, Opacity = d.IsPresent ? .9 : .45 });
         row.Children.Add(ring);
         var text = new StackPanel { Spacing = 3, VerticalAlignment = VerticalAlignment.Center };
         text.Children.Add(new TextBlock { Text = d.Name.Replace("迈从 · ", ""), FontSize = 14, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
-        string detail = !d.Connected ? d.State : d.Transport + (d.Charging ? " · 充电中" : !d.CanShow ? " · 暂未取得电量" : "");
+        string detail = d.IsCached ? d.Transport + " · 上次读数" : !d.Connected ? d.State : d.Transport + (d.Charging ? " · 充电中" : !d.CanShow ? " · 暂未取得电量" : "");
         text.Children.Add(new TextBlock { Text = detail, FontSize = 11, Opacity = .65, TextTrimming = TextTrimming.CharacterEllipsis });
         Grid.SetColumn(text, 1); row.Children.Add(text);
-        var level = new TextBlock { Text = d.Level, FontSize = d.Level.Length > 6 ? 13 : 22, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, Opacity = d.Connected ? 1 : .5 };
-        ToolTipService.SetToolTip(level, d.VendorDisplay.HasValue ? $"接收器原始读数 {d.Battery}%\n官方驱动显示 {d.VendorDisplay}%（分档）" : d.Source);
+        var level = new TextBlock { Text = d.Level, FontSize = d.Level.Length > 6 ? 13 : 22, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, Opacity = d.IsPresent ? 1 : .5 };
+        string levelDetails = d.VendorDisplay.HasValue ? $"接收器原始读数 {d.Battery}%\n官方驱动显示 {d.VendorDisplay}%（分档）" : d.Source;
+        ToolTipService.SetToolTip(level, d.IsCached ? d.State + "\n" + levelDetails : levelDetails);
         Grid.SetColumn(level, 2); row.Children.Add(level);
         var toggle = new ToggleButton { Content = new FontIcon { Glyph = "\uE718", FontSize = 13 }, IsChecked = !controller.Preferences.HiddenDevices.Contains(d.Id), Width = 28, Height = 28, Padding = new Thickness(0), VerticalAlignment = VerticalAlignment.Center };
         ToolTipService.SetToolTip(toggle, "在托盘显示这个设备");
@@ -384,7 +460,7 @@ internal sealed class FlyoutWindow : Window
             row.Children.Add(new FontIcon { Glyph = "\uE700", FontSize = 14, Opacity = .5, VerticalAlignment = VerticalAlignment.Center });
             var name = new StackPanel { Spacing = 3, VerticalAlignment = VerticalAlignment.Center };
             name.Children.Add(new TextBlock { Text = d.Name.Replace("迈从 · ", ""), FontSize = 13, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
-            name.Children.Add(new TextBlock { Text = $"{d.Level} · {(d.Connected ? d.Transport : "当前未连接")}", FontSize = 11, Opacity = .6 });
+            name.Children.Add(new TextBlock { Text = $"{d.Level} · {(d.IsCached ? "上次读数" : d.Connected ? d.Transport : "当前未连接")}", FontSize = 11, Opacity = .6 });
             Grid.SetColumn(name, 1); row.Children.Add(name);
             var enabled = new ToggleSwitch { IsOn = !controller.Preferences.HiddenDevices.Contains(d.Id), OnContent = "", OffContent = "", MinWidth = 0, Width = 45, VerticalAlignment = VerticalAlignment.Center };
             enabled.Toggled += (_, _) => { if (!updating) controller.ToggleDevice(d.Id, enabled.IsOn); };
@@ -428,7 +504,7 @@ internal sealed class FlyoutWindow : Window
     }
     private Grid ToggleSetting(string glyph, string title, string? description, bool enabled, Action<bool> changed, string? hint = null)
     {
-        var toggle = new ToggleSwitch { IsOn = enabled, OnContent = "", OffContent = "", MinWidth = 0, MinHeight = 0, Height = 28, Width = 44, VerticalAlignment = VerticalAlignment.Center };
+        var toggle = new ToggleSwitch { IsOn = enabled, OnContent = "", OffContent = "", MinWidth = 0, Width = 44, VerticalAlignment = VerticalAlignment.Center };
         AutomationProperties.SetName(toggle, title);
         toggle.Toggled += (_, _) => { if (!updating) changed(toggle.IsOn); };
         var row = SettingsRow(glyph, title, description, toggle);
@@ -463,7 +539,7 @@ internal sealed class FlyoutWindow : Window
         var content = new StackPanel();
         foreach (var row in rows)
         {
-            if (content.Children.Count > 0) content.Children.Add(new Border { Height = 1, Margin = new Thickness(12, 0, 12, 0), Background = new SolidColorBrush(Dark ? Color.FromArgb(24, 255, 255, 255) : Color.FromArgb(18, 0, 0, 0)) });
+            if (content.Children.Count > 0) content.Children.Add(new Border { Height = 1, Margin = new Thickness(12, 0, 12, 0), Background = separator });
             content.Children.Add(row);
         }
         var group = Card(content);
@@ -473,8 +549,8 @@ internal sealed class FlyoutWindow : Window
     private Border Card(UIElement content) => new()
     {
         CornerRadius = new CornerRadius(8), Padding = new Thickness(12), Child = content,
-        Background = new SolidColorBrush(CardColor), BorderThickness = new Thickness(1),
-        BorderBrush = new SolidColorBrush(Dark ? Color.FromArgb(35, 255, 255, 255) : Color.FromArgb(18, 0, 0, 0))
+        Background = cardBackground, BorderThickness = new Thickness(1),
+        BorderBrush = cardBorder
     };
     private static TextBlock SectionLabel(string text) => new() { Text = text, FontSize = 13, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 6, 0, 3), Opacity = .8 };
     private static Button IconButton(string glyph, string name, Action clicked)
@@ -492,5 +568,80 @@ internal sealed class FlyoutWindow : Window
         if (new[] { "keyboard", "rk61", "widow", "deathstalker", "键盘", "k65" }.Any(name.Contains)) return "\uE765";
         if (new[] { "手柄", "xbox", "vader", "apex", "dual", "飞智" }.Any(name.Contains)) return "\uE967";
         return "\uE962";
+    }
+
+    internal async Task RunInteractionChecksAsync()
+    {
+        int count = 0;
+        var failures = new List<string>();
+        void Check(bool value, string name) { count++; if (!value) failures.Add(name); }
+        IEnumerable<FrameworkElement> Descendants(DependencyObject parent)
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is FrameworkElement element) yield return element;
+                foreach (var descendant in Descendants(child)) yield return descendant;
+            }
+        }
+        pinned = true;
+        ShowSettings(); ShowFlyout();
+        await Task.Delay(300);
+        var minimumSize = NativeWindow.MinimumTrackingSize(hwnd);
+        Check(minimumSize.Width >= Math.Ceiling(340 * NativeWindow.Scale(hwnd))
+            && minimumSize.Height >= Math.Ceiling(240 * NativeWindow.Scale(hwnd)),
+            "Native border dragging respects minimum width and height before resizing");
+        var toggle = Descendants(root).OfType<ToggleSwitch>().Single(t => AutomationProperties.GetName(t) == "分段环形图标");
+        bool original = toggle.IsOn;
+        try
+        {
+            toggle.IsOn = !original;
+            await Task.Delay(200);
+            Check(Descendants(root).Contains(toggle) && toggle.IsOn == !original, "Setting control survives its own toggle animation");
+            UpdateView();
+            Check(Descendants(root).Contains(toggle), "Background refresh does not replace settings controls");
+            var knobs = Descendants(toggle).Where(e => e.Name.Contains("Knob", StringComparison.OrdinalIgnoreCase) && e.ActualWidth > 0 && e.ActualHeight > 0).ToArray();
+            Check(knobs.Length > 0 && knobs.All(e =>
+            {
+                var bounds = e.TransformToVisual(toggle).TransformBounds(new Windows.Foundation.Rect(0, 0, e.ActualWidth, e.ActualHeight));
+                return bounds.Top >= -.5 && bounds.Bottom <= toggle.ActualHeight + .5;
+            }), "Native toggle knob fits inside its full control height");
+            var theme = Descendants(root).OfType<ComboBox>().Single(c => AutomationProperties.GetName(c) == "外观");
+            theme.IsDropDownOpen = true;
+            await Task.Delay(100);
+            UpdateView();
+            Check(Descendants(root).Contains(theme) && theme.IsDropDownOpen, "Refresh preserves an open settings dropdown");
+            theme.IsDropDownOpen = false;
+            HideFlyout();
+            await Task.Delay(25);
+            ShowFlyout();
+            await Task.Delay(300);
+            Check(visible && NativeWindow.IsVisible(hwnd) && root.Opacity > .99, "Rapid reopen is not hidden by an old close animation");
+            ShowSupport(); ShowSettings();
+            await Task.Delay(300);
+            Check(Descendants(root).OfType<ToggleSwitch>().Count() == 4 && body.Opacity > .99, "Rapid page navigation settles on visible settings controls");
+            AppWindow.Move(new Windows.Graphics.PointInt32(AppWindow.Position.X - 80, AppWindow.Position.Y));
+            var expectedPosition = AppWindow.Position;
+            var expectedSize = AppWindow.Size;
+            bool BoundsUnchanged() => AppWindow.Position.X == expectedPosition.X && AppWindow.Position.Y == expectedPosition.Y
+                && AppWindow.Size.Width == expectedSize.Width && AppWindow.Size.Height == expectedSize.Height;
+            ShowUpdates(); ShowFlyout();
+            await Task.Delay(250);
+            Check(BoundsUnchanged(), "Opening update page preserves the visible window position and size");
+            controller.ShowSettings(); controller.ShowDeviceManagement();
+            await Task.Delay(250);
+            Check(BoundsUnchanged(), "Navigation actions never reposition an already visible flyout");
+            bool NoTranslation(FrameworkElement element)
+            {
+                var origin = element.RenderTransform?.TransformPoint(new Windows.Foundation.Point(0, 0)) ?? new Windows.Foundation.Point(0, 0);
+                return Math.Abs(origin.X) < .01 && Math.Abs(origin.Y) < .01;
+            }
+            HideFlyout(); await Task.Delay(25); ShowFlyout(); await Task.Delay(40);
+            ShowSettings(); await Task.Delay(40);
+            Check(NoTranslation(root) && NoTranslation(body), "Open and page animations do not translate content");
+        }
+        finally { controller.Preferences.RingIcons = original; controller.Save(); }
+        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "ui-self-test.json"), System.Text.Json.JsonSerializer.Serialize(new { Passed = failures.Count == 0, Checks = count, Failures = failures }));
+        if (failures.Count > 0) Environment.ExitCode = 1;
     }
 }

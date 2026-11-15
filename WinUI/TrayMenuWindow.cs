@@ -43,7 +43,7 @@ internal sealed class TrayMenuWindow : Window
         var devices = new MenuFlyoutSubItem { Text = "显示的设备", Icon = new FontIcon { Glyph = "\uE772" } };
         foreach (var d in controller.ManagedDevices)
         {
-            var toggle = new ToggleMenuFlyoutItem { Text = $"{d.Name} — {d.Level}", IsChecked = !controller.Preferences.HiddenDevices.Contains(d.Id) };
+            var toggle = new ToggleMenuFlyoutItem { Text = $"{d.Name} — {d.TooltipLevel}", IsChecked = !controller.Preferences.HiddenDevices.Contains(d.Id) };
             toggle.Click += (_, _) => controller.ToggleDevice(d.Id, toggle.IsChecked);
             devices.Items.Add(toggle);
         }

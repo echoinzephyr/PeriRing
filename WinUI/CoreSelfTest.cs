@@ -10,6 +10,7 @@ internal static class CoreSelfTest
         var failures = new List<string>();
         int checks = ProtocolTests.Run(failures);
         checks += UpdateServiceTests.Run(failures);
+        checks += BatteryHistoryTests.Run(failures);
         if (NativeBattery.NormalizeAddress("aa:bb:cc:dd:ee:ff") != "AABBCCDDEEFF") failures.Add("Bluetooth address normalization");
         foreach (int level in new[] { 0, 9, 20, 40, 75, 80, 100 })
         {
@@ -51,7 +52,27 @@ internal static class CoreSelfTest
         var half = SegmentedRing.Layout([new("a", "a", true, 50, "test"), new("b", "b", true, 100, "test")]);
         checks++;
         if (Math.Abs(half[0].ProgressAngle * 2 - half[1].ProgressAngle) > .001) failures.Add("Arc length is proportional to battery");
+        using (var legible = TrayIcon.CreateCombined([new("a", "a", true, 80, "test")], size: 16))
+        using (var pixels = legible.ToBitmap())
+        {
+            checks++;
+            int ink = 0;
+            for (int x = 0; x < 16; x++) for (int y = 0; y < 16; y++) if (pixels.GetPixel(x, y).A > 160) ink++;
+            if (ink < 65) failures.Add("Small tray mark has enough solid pixels to remain legible");
+            checks++;
+            if (pixels.GetPixel(8, 8).A < 220) failures.Add("Small tray center remains solid and visible");
+        }
         var redDevices = Enumerable.Range(0, 6).Select(i => new Peripheral(i.ToString(), "test", true, i == 5 ? 10 : 80, "test")).ToArray();
+        foreach (int count in new[] { 2, 5, 6 })
+        {
+            var fullDevices = Enumerable.Range(0, count).Select(i => new Peripheral(i.ToString(), "test", true, 100, "test")).ToArray();
+            using var separated = TrayIcon.CreateCombined(fullDevices, size: 16);
+            using var pixels = separated.ToBitmap();
+            checks++;
+            if (pixels.GetPixel(7, 1).A > 90 || pixels.GetPixel(8, 1).A > 90)
+                failures.Add($"Full batteries retain a visible tray segment gap: {count}");
+            pixels.Save(Path.Combine(AppContext.BaseDirectory, $"separated-{count}.png"));
+        }
         foreach (int size in new[] { 16, 20, 24, 32, 48 })
         {
             using var dpiIcon = TrayIcon.CreateCombined(redDevices, size: size);

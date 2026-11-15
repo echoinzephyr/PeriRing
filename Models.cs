@@ -3,14 +3,18 @@ using System.Text.Json;
 namespace BatteryDisplay;
 
 internal sealed record Peripheral(string Id, string Name, bool Connected, int? Battery, string Source, string Transport = "蓝牙", bool Charging = false,
-    int? Gauge = null, string? LevelDescription = null, string? Note = null, int? VendorDisplay = null, bool UseVendorDisplay = false)
+    int? Gauge = null, string? LevelDescription = null, string? Note = null, int? VendorDisplay = null, bool UseVendorDisplay = false,
+    string? ConnectionId = null, bool ReceiverPresent = false, bool IsCached = false, DateTimeOffset? BatteryUpdatedAt = null)
 {
-    public bool CanShow => Connected && (Battery.HasValue || Gauge.HasValue || Charging);
+    public bool IsPresent => Connected || IsCached && ReceiverPresent;
+    public bool CanShow => IsPresent && (Battery.HasValue || Gauge.HasValue || Charging);
     public int? DisplayBattery => UseVendorDisplay ? VendorDisplay ?? Battery : Battery;
     public int? GaugeValue => DisplayBattery ?? Gauge;
-    public string State => Note ?? (!Connected ? Battery.HasValue ? "已断开 · 电量为上次上报" : "已断开 · 暂无电量数据"
+    public string State => IsCached ? "设备休眠或暂未响应 · 显示上次电量" + (BatteryUpdatedAt is DateTimeOffset time ? $"（{time:MM-dd HH:mm}）" : "")
+        : Note ?? (!Connected ? Battery.HasValue ? "已断开 · 电量为上次上报" : "已断开 · 暂无电量数据"
         : Battery.HasValue ? Charging ? "正在充电" : "已连接" : "已连接 · 未上报电量");
     public string Level => LevelDescription ?? (DisplayBattery.HasValue ? $"{DisplayBattery}%" : "—");
+    public string TooltipLevel => Level + (IsCached ? "（上次）" : "");
 }
 
 internal sealed class Preferences

@@ -97,7 +97,7 @@ internal sealed class UsbProvider : IBatteryProvider
                 {
                     var readings = await adapter.ReadAsync(d, all, token);
                     if (readings.Count == 0) continue;
-                    results.AddRange(readings);
+                    results.AddRange(readings.Select(reading => reading with { ConnectionId = group.Key, ReceiverPresent = true }));
                     found = true;
                     break;
                 }
@@ -107,7 +107,8 @@ internal sealed class UsbProvider : IBatteryProvider
             if (!found)
             {
                 var d = group.First();
-                results.Add(new(d.Id, d.Name, false, null, adapter.Name, "USB / 2.4G", Note: "未取得电量 · 设备可能休眠或接口忙"));
+                results.Add(new(d.Id, d.Name, false, null, adapter.Name, "USB / 2.4G", Note: "未取得电量 · 设备可能休眠或接口忙",
+                    ConnectionId: group.Key, ReceiverPresent: true));
             }
         }
         return results;

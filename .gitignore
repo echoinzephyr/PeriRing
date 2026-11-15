@@ -9,6 +9,7 @@ release/
 winui-desktop.png
 diagnostics.json
 self-test.json
+ui-self-test.json
 update-check.json
 *-error.txt
 ui-startup.log

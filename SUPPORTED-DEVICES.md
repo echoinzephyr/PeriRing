@@ -21,7 +21,7 @@
 | Keychron | M5、Ultra-Link 8K、Nape Pro 的已登记 USB 标识 | 待实测，不代表所有 Keychron 键盘 |
 | 海盗船 | Dark Core RGB Pro SE 接收器、K65 PLUS Wireless 接收器；Sabre v2 Pro Ultralight 由 CompX 接入 | 待实测 |
 | Xbox / XInput | 向系统上报有效电池类型和档位的控制器；提供有效 Windows 电池报告的控制器 | 待实测；无线手柄被驱动标为有线时不虚构电量 |
-| 飞智 | 官方 SpaceStationService 能识别并上报的 Apex / Vader / Direwolf 等 | 服务协议已接入，待硬件实测；需已有官方驱动和后台服务 |
+| 飞智 | 新版 SpaceStationService 的电量档位 | 服务协议待硬件实测；旧版空间站 3 暂不支持，无法可靠读取的估算值不显示 |
 | PlayStation | DualShock 4、DualSense、DualSense Edge | 待实测；蓝牙仅监听已有报告，不主动切换增强模式 |
 
 `DeviceCatalog.json` 保存精确的 VID/PID 型号目录；动态协议适配器还有自己的能力检查和匹配条件。设备“被识别”不代表“本次已经取得有效电量”。未知回应、损坏校验、离线接收器缓存等会被拒绝。

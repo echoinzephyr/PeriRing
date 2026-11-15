@@ -20,33 +20,37 @@ internal static class TrayIcon
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
         bool light = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "SystemUsesLightTheme", 0) is int value && value == 1;
-        var foreground = light ? Color.FromArgb(62, 66, 71) : Color.FromArgb(213, 216, 219);
+        var foreground = light ? Color.FromArgb(25, 30, 35) : Color.FromArgb(246, 248, 250);
         var low = Color.FromArgb(246, 87, 94);
         var layout = SegmentedRing.Layout(devices);
-        using var track = new Pen(Color.FromArgb(52, foreground), 2.5f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+        using var track = new Pen(Color.FromArgb(70, foreground), 4.2f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
         foreach (var segment in layout)
         {
             Color color = error ? Color.FromArgb(130, foreground) : segment.Low ? low : foreground;
             if (segment.IsDot)
             {
                 double radians = segment.StartAngle * Math.PI / 180;
-                float x = 16 + 13 * (float)Math.Cos(radians);
-                float y = 16 + 13 * (float)Math.Sin(radians);
-                float radius = devices.Count > 12 ? 1.15f : 1.45f;
+                float x = 16 + 13.75f * (float)Math.Cos(radians);
+                float y = 16 + 13.75f * (float)Math.Sin(radians);
+                float radius = devices.Count > 12 ? 1.4f : 2f;
                 using var dot = new SolidBrush(color);
                 g.FillEllipse(dot, x - radius, y - radius, 2 * radius, 2 * radius);
             }
             else
             {
-                g.DrawArc(track, 3, 3, 26, 26, segment.StartAngle, segment.SweepAngle);
-                using var stroke = new Pen(color, 2.5f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+                g.DrawArc(track, 2.25f, 2.25f, 27.5f, 27.5f, segment.StartAngle, segment.SweepAngle);
+                using var stroke = new Pen(color, 4.2f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
                 if (segment.Battery.HasValue && segment.ProgressAngle > 0 && !error)
-                    g.DrawArc(stroke, 3, 3, 26, 26, segment.StartAngle, segment.ProgressAngle);
+                    g.DrawArc(stroke, 2.25f, 2.25f, 27.5f, 27.5f, segment.StartAngle, segment.ProgressAngle);
             }
         }
-        if (layout.Count == 0) g.DrawEllipse(track, 3, 3, 26, 26);
-        using var diamond = new Pen(Color.FromArgb(185, foreground), 1.7f) { LineJoin = LineJoin.Round };
-        g.DrawPolygon(diamond, new PointF[] { new(16, 9.5f), new(22.5f, 16), new(16, 22.5f), new(9.5f, 16) });
+        if (layout.Count == 0)
+        {
+            using var idle = new Pen(Color.FromArgb(145, foreground), 4.2f);
+            g.DrawEllipse(idle, 2.25f, 2.25f, 27.5f, 27.5f);
+        }
+        using var diamond = new SolidBrush(foreground);
+        g.FillPolygon(diamond, new PointF[] { new(16, 9), new(23, 16), new(16, 23), new(9, 16) });
         if (error)
         {
             using var font = new Font("Segoe UI", 11, FontStyle.Bold, GraphicsUnit.Pixel);

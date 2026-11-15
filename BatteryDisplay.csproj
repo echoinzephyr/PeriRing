@@ -23,7 +23,7 @@
     <AssemblyTitle>环电 · PeriRing</AssemblyTitle>
     <Product>环电 · PeriRing</Product>
     <Description>环电 · PeriRing — 托盘外设电量</Description>
-    <Version>0.1.1</Version>
+    <Version>0.1.2</Version>
     <AssemblyName>BatteryDisplay</AssemblyName>
     <RootNamespace>BatteryDisplay</RootNamespace>
   </PropertyGroup>
