@@ -10,7 +10,8 @@ New-Item -ItemType Directory -Force -Path $releaseDirectory | Out-Null
 & (Join-Path $projectRoot 'build.ps1') -PublishDirectory $stage
 $required = @('BatteryDisplay.exe', 'BatteryDisplay.dll', 'BatteryDisplay.deps.json', 'BatteryDisplay.runtimeconfig.json',
     'resources.pri', 'App.xbf', 'periring.ico', 'periring-64.png', 'README.md', 'SUPPORTED-DEVICES.md', 'THIRD-PARTY-NOTICES.md', 'LICENSE',
-    'Assets\periring.png', 'docs\images\devices.png', 'docs\images\device-order.png', 'docs\images\settings.png')
+    'Assets\periring.png', 'docs\images\devices.png', 'docs\images\device-order.png', 'docs\images\settings.png',
+    'docs\images\updates.png', 'docs\images\diagnostics.png')
 foreach ($name in $required) {
     if (!(Test-Path -LiteralPath (Join-Path $stage $name))) { throw "发布文件缺失：$name" }
 }

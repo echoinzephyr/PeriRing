@@ -6,7 +6,7 @@ namespace BatteryDisplay;
 internal sealed class SonixKeyboardAdapter : IHidBatteryAdapter
 {
     public string Name => "瓦尔基里 / SONiX 键盘";
-    public string Models => "VK75、VK99 / VK99 Pro 的已登记接口；2.4G 电量协议待对应硬件验证";
+    public string Models => "VK75 的 2.4G 电量已获用户实测确认；VK99 / VK99 Pro 已登记接口、待实测";
 
     private static bool IsValkyrieName(string name) => name is "Valkyrie 75" or "Valkyrie-99" or "Valkyrie-99pro" or "VK87";
     internal static bool IsWired(HidDescriptor d) => d.Vendor == 0x05AC && d.Product == 0x024F && IsValkyrieName(d.Name)

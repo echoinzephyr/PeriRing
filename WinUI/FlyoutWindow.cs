@@ -28,6 +28,9 @@ internal sealed class FlyoutWindow : Window
     private readonly IntPtr hwnd;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer deactivateTimer;
     private string page = "devices";
+    private readonly Stack<string> navigation = new();
+    private readonly Dictionary<string, double> pageOffsets = new();
+    private int layoutRevision;
     private bool pinned;
     private bool visible;
     private bool updating;
@@ -66,6 +69,11 @@ internal sealed class FlyoutWindow : Window
         root.RowSpacing = 14;
         root.Children.Add(header);
         scroll.Content = body;
+        // WinUI's expanding overlay scrollbar needs its own gutter.
+        scroll.Padding = new Thickness(0, 0, 12, 0);
+        scroll.Margin = new Thickness(0, 0, -8, 0);
+        scroll.HorizontalScrollMode = ScrollMode.Disabled;
+        scroll.IsVerticalScrollChainingEnabled = false;
         Grid.SetRow(scroll, 1);
         root.Children.Add(scroll);
         var footer = new Grid { ColumnSpacing = 8 };
@@ -174,10 +182,20 @@ internal sealed class FlyoutWindow : Window
             root.Opacity = 1;
         });
     }
-    public void ShowSettings() { page = "settings"; UpdateView(); }
-    public void ShowSupport() { page = "support"; UpdateView(); }
-    public void ShowDeviceManagement() { page = "manage"; UpdateView(); }
-    public void ShowUpdates() { page = "updates"; UpdateView(); }
+    private void Navigate(string destination)
+    {
+        if (destination != page) { navigation.Push(page); page = destination; }
+        UpdateView();
+    }
+    private void GoBack()
+    {
+        page = navigation.TryPop(out var previous) ? previous : "devices";
+        UpdateView();
+    }
+    public void ShowSettings() => Navigate("settings");
+    public void ShowSupport() => Navigate("support");
+    public void ShowDeviceManagement() => Navigate("manage");
+    public void ShowUpdates() => Navigate("updates");
 
     private void PositionFlyout(double width, double height)
     {
@@ -194,16 +212,17 @@ internal sealed class FlyoutWindow : Window
     {
         pinned = true;
         ShowFlyout();
-        foreach (string view in new[] { "devices", "manage", "settings", "support", "updates" })
+        foreach (string view in new[] { "devices", "manage", "settings", "diagnostics", "support", "updates" })
         {
-            page = view;
+            page = view == "diagnostics" ? "settings" : view;
             if (preview)
             {
-                controller.Preferences.PopupHeight = view switch { "devices" => 530, "settings" => 760, "manage" => 430, "support" => 620, _ => 340 };
+                controller.Preferences.PopupHeight = view switch { "devices" => 530, "settings" => 760, "diagnostics" => 560, "manage" => 430, "support" => 620, _ => 520 };
                 PositionFlyout(controller.Preferences.PopupWidth, controller.Preferences.PopupHeight);
             }
             UpdateView();
             await Task.Delay(300);
+            if (view == "diagnostics") { scroll.ChangeView(null, scroll.ScrollableHeight, null, true); await Task.Delay(150); }
             var bitmap = new Microsoft.UI.Xaml.Media.Imaging.RenderTargetBitmap();
             await bitmap.RenderAsync(root);
             var buffer = await bitmap.GetPixelsAsync();
@@ -244,7 +263,9 @@ internal sealed class FlyoutWindow : Window
     {
         if (updating) return;
         updating = true;
-        double offset = renderedPage == page ? scroll.VerticalOffset : 0;
+        bool changingPage = renderedPage != page;
+        if (changingPage && renderedPage.Length > 0) pageOffsets[renderedPage] = scroll.VerticalOffset;
+        double offset = changingPage ? pageOffsets.GetValueOrDefault(page) : scroll.VerticalOffset;
         try
         {
             ApplyTheme();
@@ -284,7 +305,14 @@ internal sealed class FlyoutWindow : Window
             renderedUpdateStatus = controller.UpdateStatus;
             renderedRefreshing = controller.Refreshing;
             if (pageChanged && visible) pageMotion = Animate(body, true, 120);
-            DispatcherQueue.TryEnqueue(() => scroll.ChangeView(null, offset, null, true));
+            int revision = ++layoutRevision;
+            string destination = page;
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+            {
+                if (revision != layoutRevision || page != destination) return;
+                scroll.UpdateLayout();
+                scroll.ChangeView(null, Math.Min(offset, scroll.ScrollableHeight), null, true);
+            });
         }
         finally { updating = false; }
     }
@@ -299,7 +327,7 @@ internal sealed class FlyoutWindow : Window
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         UIElement leading = page == "devices" ? new Image { Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "periring-64.png"))), Width = 24, Height = 24, VerticalAlignment = VerticalAlignment.Center }
-            : IconButton("\uE72B", "返回设备", () => { page = "devices"; UpdateView(); });
+            : IconButton("\uE72B", "返回上一页", GoBack);
         row.Children.Add(leading);
         title.Text = page == "settings" ? "设置" : page == "support" ? "支持设备" : page == "manage" ? "设备开关与排序" : page == "updates" ? "检查更新" : AppBrand.Name;
         title.VerticalAlignment = VerticalAlignment.Center;
@@ -385,7 +413,7 @@ internal sealed class FlyoutWindow : Window
     {
         body.Children.Add(SectionLabel("设备与显示"));
         body.Children.Add(SettingsGroup(
-            SettingsLink("\uE8CB", "设备开关与排序", "选择显示的设备和优先级", () => { page = "manage"; UpdateView(); }),
+            SettingsLink("\uE8CB", "设备开关与排序", "选择显示的设备和优先级", ShowDeviceManagement),
             ToggleSetting("\uEA3A", "分段环形图标", null, controller.Preferences.RingIcons,
                 value => { controller.Preferences.RingIcons = value; controller.Save(); }, "关闭后显示最低电量数字"),
             ToggleSetting("\uE9F9", "与官方驱动一致", "采用已核实的厂商电量分档", controller.Preferences.PreferVendorDisplay,
@@ -412,9 +440,7 @@ internal sealed class FlyoutWindow : Window
             SettingsRow("\uE72C", "后台刷新", null, interval)));
         body.Children.Add(SectionLabel("关于"));
         body.Children.Add(SettingsGroup(
-            ToggleSetting("\uE895", "自动更新", "自动下载、安装并重新启动", controller.Preferences.AutomaticUpdates,
-                value => { controller.Preferences.AutomaticUpdates = value; controller.Save(); }),
-            SettingsLink("\uE946", "支持设备", null, () => { page = "support"; UpdateView(); }),
+            SettingsLink("\uE946", "支持设备", null, ShowSupport),
             SettingsLink("\uE895", "检查更新", $"当前版本 v{UpdateService.CurrentLabel}", controller.CheckForUpdates)));
         body.Children.Add(SectionLabel("诊断"));
         body.Children.Add(SettingsGroup(
@@ -428,6 +454,9 @@ internal sealed class FlyoutWindow : Window
     {
         body.Children.Add(new TextBlock { Text = AppBrand.DisplayName, FontSize = 20, FontWeight = FontWeights.SemiBold });
         body.Children.Add(new TextBlock { Text = $"当前版本 v{UpdateService.CurrentLabel}", FontSize = 13, Opacity = .7 });
+        body.Children.Add(SettingsGroup(ToggleSetting("\uE895", "自动更新", "自动下载、备份替换并重新启动", controller.Preferences.AutomaticUpdates,
+            value => { controller.Preferences.AutomaticUpdates = value; controller.Save(); })));
+        body.Children.Add(new TextBlock { Text = "安装前备份被替换的文件；新版启动失败时恢复旧版。保留设备设置和电量缓存。", FontSize = 12, Opacity = .7, TextWrapping = TextWrapping.Wrap });
         var result = controller.Update;
         if (controller.CheckingUpdates)
         {
@@ -508,7 +537,8 @@ internal sealed class FlyoutWindow : Window
             body.Children.Add(SupportCard(provider.Name, provider.Coverage, state?.Warning ?? (state is null ? "尚未读取" : $"识别到 {state.DeviceCount} 个设备")));
         }
         foreach (var adapter in UsbProvider.Adapters)
-            body.Children.Add(SupportCard(adapter.Name, adapter.Models, adapter is MchoseAdapter ? "AX5 V2、A7 Ultra(RE) 已实测" : "已接入 · 硬件待实测"));
+            body.Children.Add(SupportCard(adapter.Name, adapter.Models, adapter is MchoseAdapter ? "AX5 V2、A7 Ultra(RE) 已实测"
+                : adapter is SonixKeyboardAdapter ? "VK75 2.4G 电量已由用户实测；其他型号待验证" : "已接入 · 硬件待实测"));
     }
     private Border SupportCard(string name, string coverage, string state)
     {
@@ -635,7 +665,7 @@ internal sealed class FlyoutWindow : Window
             Check(visible && NativeWindow.IsVisible(hwnd) && root.Opacity > .99, "Rapid reopen is not hidden by an old close animation");
             ShowSupport(); ShowSettings();
             await Task.Delay(300);
-            Check(Descendants(root).OfType<ToggleSwitch>().Count() == 6 && body.Opacity > .99, "Rapid page navigation settles on visible settings controls");
+            Check(Descendants(root).OfType<ToggleSwitch>().Count() == 5 && body.Opacity > .99, "Rapid page navigation settles on visible settings controls");
             AppWindow.Move(new Windows.Graphics.PointInt32(AppWindow.Position.X - 80, AppWindow.Position.Y));
             var expectedPosition = AppWindow.Position;
             var expectedSize = AppWindow.Size;
@@ -655,6 +685,36 @@ internal sealed class FlyoutWindow : Window
             HideFlyout(); await Task.Delay(25); ShowFlyout(); await Task.Delay(40);
             ShowSettings(); await Task.Delay(40);
             Check(NoTranslation(root) && NoTranslation(body), "Open and page animations do not translate content");
+            navigation.Clear();
+            page = "devices"; UpdateView();
+            ShowSettings(); await Task.Delay(200);
+            scroll.ChangeView(null, Math.Min(300, scroll.ScrollableHeight), null, true);
+            await Task.Delay(100);
+            double settingsOffset = scroll.VerticalOffset;
+            Check(settingsOffset > 0, "Settings scroll fixture reaches lower settings");
+            ShowSupport(); await Task.Delay(150); GoBack(); await Task.Delay(200);
+            Check(page == "settings" && Math.Abs(scroll.VerticalOffset - settingsOffset) < 1,
+                "Back from support restores settings and its scroll position");
+            ShowUpdates(); await Task.Delay(150);
+            var automatic = Descendants(root).OfType<ToggleSwitch>().Single(t => AutomationProperties.GetName(t) == "自动更新");
+            bool originalAutomatic = automatic.IsOn;
+            automatic.IsOn = !originalAutomatic;
+            Check(Descendants(root).Contains(automatic) && controller.Preferences.AutomaticUpdates == !originalAutomatic,
+                "Automatic update switch lives in update page and survives saving");
+            automatic.IsOn = originalAutomatic;
+            GoBack(); await Task.Delay(200);
+            Check(page == "settings" && Math.Abs(scroll.VerticalOffset - settingsOffset) < 1
+                && !Descendants(root).OfType<ToggleSwitch>().Any(t => AutomationProperties.GetName(t) == "自动更新"),
+                "Back from updates restores settings without duplicate update switch");
+            GoBack(); await Task.Delay(150);
+            Check(page == "devices", "Back from root settings returns to devices");
+            ShowSettings(); await Task.Delay(150);
+            var contentBounds = body.TransformToVisual(scroll).TransformBounds(new Windows.Foundation.Rect(0, 0, body.ActualWidth, body.ActualHeight));
+            Check(scroll.ActualWidth - contentBounds.Right >= 10 && scroll.ActualWidth - contentBounds.Right <= 13,
+                "Scrollbar gutter protects cards without excessive spacing");
+            var scrollBounds = scroll.TransformToVisual(root).TransformBounds(new Windows.Foundation.Rect(0, 0, scroll.ActualWidth, scroll.ActualHeight));
+            Check(root.ActualWidth - scrollBounds.Right >= 6 && root.ActualWidth - scrollBounds.Right <= 10,
+                "Scrollbar stays near the outer edge instead of consuming card width");
         }
         finally { controller.Preferences.RingIcons = original; controller.Save(); }
         File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "ui-self-test.json"), System.Text.Json.JsonSerializer.Serialize(new { Passed = failures.Count == 0, Checks = count, Failures = failures }));

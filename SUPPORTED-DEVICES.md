@@ -6,7 +6,7 @@
 |---|---|---|
 | 标准蓝牙 | Windows 已上报电量的鼠标、键盘、耳机等；标准 BLE Battery Service | 本机系统读数已验证；BLE 直读待实测 |
 | 迈从 | Realtek 协议的 AX5 V2、A7 Ultra(RE)、部分 M7 / L7、A7 V2 系列 | AX5 V2 和 A7 Ultra(RE) 已实测电量读取，并验证两个同 VID/PID 接收器可分别读取；其余待实测 |
-| 瓦尔基里 / SONiX 键盘 | VK75、VK99 / VK99 Pro 已登记接口；接收器必须同时匹配名称、接口和报告格式 | VK75 有线识别已接入，有线没有读数时显示原因；2.4G 电量查询待对应硬件实测 |
+| 瓦尔基里 / SONiX 键盘 | VK75、VK99 / VK99 Pro 已登记接口；接收器必须同时匹配名称、接口和报告格式 | VK75 通过 2.4G 接收器正常显示电量，已获用户实测确认；USB 有线目前仅验证型号识别，VK99 / VK99 Pro 电量仍待实测 |
 | 罗技 | 提供 HID++ 电池功能的 Unifying / Bolt / Lightspeed / Nano 外设；部分 G 系列耳机 | 待实测；旧式电池寄存器、新式百分比、档位和电压均有对应处理 |
 | 雷蛇 | 已登记的 Viper、DeathAdder、Basilisk、Naga、Cobra、Pro Click 等无线鼠标；BlackWidow、DeathStalker、Pro Type Ultra 等无线键盘 | 待实测；具体 USB 标识以设备目录为准，不含 Mouse Dock Pro 的转发协议 |
 | ATK / VGN / VXE | 已登记的 A9、X1、R1、Dragonfly 4K 等 CompX 设备 | 待实测；并非所有新款均使用此协议 |
