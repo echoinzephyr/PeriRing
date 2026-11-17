@@ -22,20 +22,23 @@ internal sealed class BluetoothProvider : IBatteryProvider
 internal static class BatteryService
 {
     internal static readonly IBatteryProvider[] Providers =
-    [new BluetoothProvider(), new UsbProvider(), new ControllerProvider(), new FlydigiProvider()];
+    [new BluetoothProvider(), new UsbProvider(), new ControllerProvider(), new FlydigiProvider(), new StandardBatteryProvider()];
 
     public static async Task<ScanReport> ScanAsync(CancellationToken token, IEnumerable<IBatteryProvider>? sources = null)
     {
         var snapshots = await Task.WhenAll((sources ?? Providers).Select(provider => Task.Run(async () =>
         {
+            var started = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 var devices = await provider.ReadAsync(token);
+                DebugService.Log(provider.Name, "scan-complete", new { Milliseconds = started.ElapsedMilliseconds, Count = devices.Count });
                 return (Devices: devices, State: new ProviderState(provider.Name, provider.Coverage, provider.Verification, devices.Count));
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
+                DebugService.Log(provider.Name, "scan-failed", new { Milliseconds = started.ElapsedMilliseconds, Type = ex.GetType().Name, ex.HResult });
                 return (Devices: new List<Peripheral>(), State: new ProviderState(provider.Name, provider.Coverage, provider.Verification, 0, ex.Message));
             }
         }, token)));

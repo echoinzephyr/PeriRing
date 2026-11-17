@@ -17,6 +17,10 @@ internal sealed class TrayController : IDisposable
     private readonly DispatcherQueue dispatcher = DispatcherQueue.GetForCurrentThread();
     private readonly DispatcherQueueTimer timer;
     private readonly DispatcherQueueTimer trayDpiTimer;
+    private readonly DispatcherQueueTimer updateTimer;
+    public string UpdateStatus { get; private set; } = "";
+    private DateTimeOffset lastUpdateCheck = DateTimeOffset.MinValue;
+    private DateTimeOffset lastCleanup = DateTimeOffset.MinValue;
     private int trayIconSize;
     private readonly Forms.NotifyIcon manager = new();
     private readonly HashSet<string> alerted = [];
@@ -36,6 +40,7 @@ internal sealed class TrayController : IDisposable
     public TrayController(bool show, bool preview)
     {
         this.preview = preview;
+        DebugService.Enabled = Preferences.DebugMode;
         window = new FlyoutWindow(this);
         File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "Device flyout ready\n");
         menuWindow = new TrayMenuWindow(this);
@@ -77,6 +82,19 @@ internal sealed class TrayController : IDisposable
         trayDpiTimer.Interval = TimeSpan.FromSeconds(3);
         trayDpiTimer.Tick += (_, _) => { if (NativeWindow.TrayIconSize() != trayIconSize) UpdateIcons(); };
         trayDpiTimer.Start();
+        updateTimer = dispatcher.CreateTimer();
+        updateTimer.Interval = TimeSpan.FromSeconds(15);
+        updateTimer.Tick += (_, _) =>
+        {
+            if (DateTimeOffset.Now - lastCleanup > TimeSpan.FromHours(1))
+            {
+                lastCleanup = DateTimeOffset.Now;
+                _ = Task.Run(CacheMaintenance.Run);
+            }
+            if (!preview && Preferences.AutomaticUpdates && DateTimeOffset.Now - lastUpdateCheck > TimeSpan.FromHours(6))
+                RunUpdate(false);
+        };
+        updateTimer.Start();
         SystemEvents.PowerModeChanged += PowerChanged;
         if (preview)
         {
@@ -180,23 +198,80 @@ internal sealed class TrayController : IDisposable
     public void ShowSettings() { HideHover(); window.ShowSettings(); window.ShowFlyout(); }
     public void ShowSupport() { HideHover(); window.ShowSupport(); window.ShowFlyout(); }
     public void ShowDeviceManagement() { HideHover(); window.ShowDeviceManagement(); window.ShowFlyout(); }
-    public async void CheckForUpdates()
+    public void CheckForUpdates()
     {
         HideHover();
         window.ShowUpdates(); window.ShowFlyout();
+        RunUpdate(true);
+    }
+    private async void RunUpdate(bool manual)
+    {
         if (CheckingUpdates) return;
+        if (!manual)
+        {
+            if (AutoUpdate.RecentFailure()) { lastUpdateCheck = DateTimeOffset.Now; return; }
+        }
+        lastUpdateCheck = DateTimeOffset.Now;
         CheckingUpdates = true;
         Update = null;
+        UpdateStatus = "正在检查新版本…";
         window.UpdateView();
-        try { Update = await UpdateService.CheckAsync(lifetime.Token); }
+        try
+        {
+            Update = await UpdateService.CheckAsync(lifetime.Token);
+            UpdateStatus = Update.Message;
+            DebugService.Log("update", "checked", new { Update.Success, Update.Available, Update.LatestVersion });
+            if (Update.Success && Update.Available && (manual || Preferences.AutomaticUpdates) && !preview)
+            {
+                var progress = new Progress<string>(message => { if (!quitting) { UpdateStatus = message; window.UpdateView(); } });
+                var plan = await Task.Run(() => AutoUpdate.PrepareAsync(Update, progress, lifetime.Token));
+                if (quitting) return;
+                UpdateStatus = "正在安装更新，将自动重新启动…";
+                window.UpdateView();
+                AutoUpdate.Launch(plan);
+                Quit();
+            }
+        }
         catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            UpdateStatus = "自动更新未完成：" + ex.Message + "。可稍后重试。";
+            DebugService.Log("update", "failed", new { Type = ex.GetType().Name, ex.HResult });
+            Update = new(false, false, UpdateStatus, ReleasePage: new(UpdateService.Repository + "/releases"));
+        }
         finally { CheckingUpdates = false; if (!quitting) window.UpdateView(); }
+    }
+    public async void ExportDiagnostics()
+    {
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
+            timeout.CancelAfter(TimeSpan.FromSeconds(40));
+            var report = await Task.Run(() => BatteryService.ScanAsync(timeout.Token));
+            // Explicit export collects interface metadata even if continuous logging is off.
+            bool logging = DebugService.Enabled;
+            try { DebugService.Enabled = true; DebugService.Observe(await Task.Run(() => HidBattery.Enumerate(timeout.Token))); }
+            finally { DebugService.Enabled = logging; }
+            string zip = await Task.Run(() => DebugService.Export(report));
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", "/select,\"" + zip + "\"") { UseShellExecute = true });
+        }
+        catch (Exception ex) { if (!quitting) { Error = "诊断导出失败：" + ex.Message; window.UpdateView(); } }
+    }
+    public void ClearDiagnostics()
+    {
+        try
+        {
+            DebugService.Cleanup(true);
+            manager.ShowBalloonTip(3000, AppBrand.Name, "已清理可回收的本地日志和诊断包。Debug 开启时会继续生成新日志。", Forms.ToolTipIcon.Info);
+        }
+        catch (Exception ex) { Error = "清理失败：" + ex.Message; window.UpdateView(); }
     }
     public void Save()
     {
         try { Preferences.Save(); Error = null; }
         catch (Exception ex) { Error = "设置保存失败：" + ex.Message; }
         timer.Interval = TimeSpan.FromSeconds(Preferences.RefreshSeconds);
+        DebugService.Enabled = Preferences.DebugMode;
         UpdateIcons();
         window.ApplySettings();
     }
@@ -231,6 +306,7 @@ internal sealed class TrayController : IDisposable
         SystemEvents.PowerModeChanged -= PowerChanged;
         timer.Stop();
         trayDpiTimer.Stop();
+        updateTimer.Stop();
         hoverDelay.Stop(); hoverTracking.Stop();
         showWait.Unregister(null);
         showEvent.Dispose();

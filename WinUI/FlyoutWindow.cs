@@ -39,6 +39,7 @@ internal sealed class FlyoutWindow : Window
     private string renderedManagement = "";
     private UpdateResult? renderedUpdate;
     private bool renderedCheckingUpdates;
+    private string renderedUpdateStatus = "";
     private bool renderedRefreshing;
     private Storyboard? windowMotion;
     private Storyboard? pageMotion;
@@ -257,7 +258,7 @@ internal sealed class FlyoutWindow : Window
             bool changed = page switch
             {
                 "settings" => false,
-                "updates" => renderedUpdate != controller.Update || renderedCheckingUpdates != controller.CheckingUpdates,
+                "updates" => renderedUpdate != controller.Update || renderedCheckingUpdates != controller.CheckingUpdates || renderedUpdateStatus != controller.UpdateStatus,
                 "support" => !ReferenceEquals(renderedProviders, controller.Providers),
                 "manage" => renderedManagement != management,
                 _ => renderedDeviceState != deviceState || renderedError != controller.Error
@@ -280,6 +281,7 @@ internal sealed class FlyoutWindow : Window
             renderedManagement = management;
             renderedUpdate = controller.Update;
             renderedCheckingUpdates = controller.CheckingUpdates;
+            renderedUpdateStatus = controller.UpdateStatus;
             renderedRefreshing = controller.Refreshing;
             if (pageChanged && visible) pageMotion = Animate(body, true, 120);
             DispatcherQueue.TryEnqueue(() => scroll.ChangeView(null, offset, null, true));
@@ -410,8 +412,16 @@ internal sealed class FlyoutWindow : Window
             SettingsRow("\uE72C", "后台刷新", null, interval)));
         body.Children.Add(SectionLabel("关于"));
         body.Children.Add(SettingsGroup(
+            ToggleSetting("\uE895", "自动更新", "自动下载、安装并重新启动", controller.Preferences.AutomaticUpdates,
+                value => { controller.Preferences.AutomaticUpdates = value; controller.Save(); }),
             SettingsLink("\uE946", "支持设备", null, () => { page = "support"; UpdateView(); }),
             SettingsLink("\uE895", "检查更新", $"当前版本 v{UpdateService.CurrentLabel}", controller.CheckForUpdates)));
+        body.Children.Add(SectionLabel("诊断"));
+        body.Children.Add(SettingsGroup(
+            ToggleSetting("\uEBE8", "Debug 模式", "记录扫描过程与错误，仅保存在本机", controller.Preferences.DebugMode,
+                value => { controller.Preferences.DebugMode = value; controller.Save(); }),
+            SettingsLink("\uE9D9", "导出诊断包", "设备接口、适配状态和日志，不会自动上传", controller.ExportDiagnostics),
+            SettingsLink("\uE74D", "清理诊断数据", "删除本地日志及导出包，保留设备设置", controller.ClearDiagnostics)));
     }
 
     private void BuildUpdates()
@@ -422,7 +432,7 @@ internal sealed class FlyoutWindow : Window
         if (controller.CheckingUpdates)
         {
             body.Children.Add(new ProgressRing { IsActive = true, Width = 28, Height = 28, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 16, 0, 0) });
-            body.Children.Add(new TextBlock { Text = "正在检查新版本…", FontSize = 13 });
+            body.Children.Add(new TextBlock { Text = controller.UpdateStatus, FontSize = 13, TextWrapping = TextWrapping.Wrap });
         }
         else if (result is not null)
             body.Children.Add(new InfoBar { IsOpen = true, IsClosable = false, Severity = !result.Success ? InfoBarSeverity.Warning
@@ -432,9 +442,7 @@ internal sealed class FlyoutWindow : Window
         body.Children.Add(check);
         if (result?.Available == true)
         {
-            var download = new HyperlinkButton { Content = result.Download is not null ? "下载新版（Windows x64）" : "查看新版与下载", NavigateUri = result.Download ?? result.ReleasePage, HorizontalAlignment = HorizontalAlignment.Left };
-            body.Children.Add(download);
-            body.Children.Add(new TextBlock { Text = "下载后退出环电，解压并替换程序文件；保留 data 文件夹即可保留设置。", FontSize = 12, Opacity = .7, TextWrapping = TextWrapping.Wrap });
+            body.Children.Add(new TextBlock { Text = "更新会自动下载、安装并重新启动，保留现有设置。", FontSize = 12, Opacity = .7, TextWrapping = TextWrapping.Wrap });
         }
         body.Children.Add(new HyperlinkButton { Content = "GitHub 发布页面", NavigateUri = new Uri(UpdateService.Repository + "/releases"), HorizontalAlignment = HorizontalAlignment.Left });
     }
@@ -484,6 +492,14 @@ internal sealed class FlyoutWindow : Window
 
     private void BuildSupport()
     {
+        if (DebugService.Enabled)
+        {
+            var unknown = DebugService.Inventory.Where(d => d.Adapters.Length == 0).ToArray();
+            body.Children.Add(SectionLabel($"待适配接口 · {unknown.Length}"));
+            foreach (var d in unknown)
+                body.Children.Add(SupportCard(d.Name, $"VID {d.Vendor} · PID {d.Product} · Usage {d.UsagePage:X4}/{d.Usage:X4}",
+                    "未匹配私有协议；可导出诊断包用于适配分析"));
+        }
         body.Children.Add(new InfoBar { IsOpen = true, IsClosable = false, Severity = InfoBarSeverity.Informational,
             Message = "迈从 AX5 V2、A7 Ultra(RE) 已实测。其余适配仍需对应硬件验证。" });
         foreach (var provider in BatteryService.Providers.Where(p => p is not UsbProvider))
@@ -619,7 +635,7 @@ internal sealed class FlyoutWindow : Window
             Check(visible && NativeWindow.IsVisible(hwnd) && root.Opacity > .99, "Rapid reopen is not hidden by an old close animation");
             ShowSupport(); ShowSettings();
             await Task.Delay(300);
-            Check(Descendants(root).OfType<ToggleSwitch>().Count() == 4 && body.Opacity > .99, "Rapid page navigation settles on visible settings controls");
+            Check(Descendants(root).OfType<ToggleSwitch>().Count() == 6 && body.Opacity > .99, "Rapid page navigation settles on visible settings controls");
             AppWindow.Move(new Windows.Graphics.PointInt32(AppWindow.Position.X - 80, AppWindow.Position.Y));
             var expectedPosition = AppWindow.Position;
             var expectedSize = AppWindow.Size;

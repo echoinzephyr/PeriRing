@@ -8,6 +8,7 @@ data/
 release/
 winui-desktop.png
 diagnostics.json
+diagnostics-export.txt
 self-test.json
 ui-self-test.json
 update-check.json

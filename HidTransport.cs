@@ -23,13 +23,20 @@ internal sealed class HidConnection : IDisposable
         if (handle.IsInvalid) { handle.Dispose(); throw new IOException("设备接口正忙或不可访问"); }
     }
 
-    public bool SetFeature(byte[] report) => HidBattery.HidD_SetFeature(handle, report, report.Length);
+    public bool SetFeature(byte[] report)
+    {
+        bool success = HidBattery.HidD_SetFeature(handle, report, report.Length);
+        DebugService.Log("HID", "feature-request", new { Device = DebugService.Key(Descriptor.Id), ReportId = report.FirstOrDefault(), Length = report.Length, Success = success });
+        return success;
+    }
     public byte[]? GetFeature(byte id, int length)
     {
         if (length is < 1 or > 4096) return null;
         var buffer = new byte[length];
         buffer[0] = id;
-        return HidBattery.HidD_GetFeature(handle, buffer, buffer.Length) ? buffer : null;
+        bool success = HidBattery.HidD_GetFeature(handle, buffer, buffer.Length);
+        DebugService.Log("HID", "feature-response", new { Device = DebugService.Key(Descriptor.Id), ReportId = id, Length = length, Success = success });
+        return success ? buffer : null;
     }
     private FileStream Stream
     {
@@ -85,6 +92,7 @@ internal sealed class UsbProvider : IBatteryProvider
     public async Task<List<Peripheral>> ReadAsync(CancellationToken token)
     {
         var all = HidBattery.Enumerate(token);
+        DebugService.Observe(all);
         var results = new List<Peripheral>();
         foreach (var adapter in Adapters)
         foreach (var group in all.Where(adapter.Matches).GroupBy(d => d.Group))
@@ -96,13 +104,14 @@ internal sealed class UsbProvider : IBatteryProvider
                 try
                 {
                     var readings = await adapter.ReadAsync(d, all, token);
+                    DebugService.Log(adapter.Name, readings.Count > 0 ? "reading" : "no-reading", new { Device = DebugService.Key(d.Id), Count = readings.Count });
                     if (readings.Count == 0) continue;
                     results.AddRange(readings.Select(reading => reading with { ConnectionId = group.Key, ReceiverPresent = true }));
                     found = true;
                     break;
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
-                catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"{adapter.Name}: {ex.Message}"); }
+                catch (Exception ex) { DebugService.Log(adapter.Name, "read-failed", new { Device = DebugService.Key(d.Id), Type = ex.GetType().Name, ex.HResult }); }
             }
             if (!found)
             {

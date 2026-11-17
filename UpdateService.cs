@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace BatteryDisplay;
 
 internal sealed record UpdateResult(bool Success, bool Available, string Message, string? LatestVersion = null,
-    Uri? ReleasePage = null, Uri? Download = null);
+    Uri? ReleasePage = null, Uri? Download = null, string? Sha256 = null, long Size = 0);
 
 internal static class UpdateService
 {
@@ -56,6 +56,8 @@ internal static class UpdateService
         if (release.TryGetProperty("html_url", out var html) && html.ValueKind == JsonValueKind.String
             && SafeLink(html.GetString(), "/releases/tag/") is Uri releasePage) page = releasePage;
         Uri? download = null;
+        string? sha256 = null;
+        long size = 0;
         if (release.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
             foreach (var asset in assets.EnumerateArray())
             {
@@ -63,10 +65,16 @@ internal static class UpdateService
                 if (asset.TryGetProperty("name", out var name) && name.ValueKind == JsonValueKind.String
                     && name.GetString() == $"PeriRing-v{label}-win-x64.zip"
                     && asset.TryGetProperty("browser_download_url", out var url) && url.ValueKind == JsonValueKind.String)
-                    download = SafeLink(url.GetString(), "/releases/download/");
+                {
+                    download = SafeLink(url.GetString(), $"/releases/download/{Uri.EscapeDataString(tag!)}/");
+                    if (asset.TryGetProperty("digest", out var digest) && digest.ValueKind == JsonValueKind.String
+                        && digest.GetString() is string hash && hash.StartsWith("sha256:") && hash.Length == 71
+                        && hash[7..].All(Uri.IsHexDigit)) sha256 = hash[7..].ToLowerInvariant();
+                    if (asset.TryGetProperty("size", out var bytes) && bytes.ValueKind == JsonValueKind.Number && bytes.TryGetInt64(out long length)) size = length;
+                }
             }
         bool available = latest > Normalize(current);
-        return new(true, available, available ? $"发现新版本 v{label}" : "当前已是最新版本。", label, page, download);
+        return new(true, available, available ? $"发现新版本 v{label}" : "当前已是最新版本。", label, page, download, sha256, size);
     }
     internal static bool TryVersion(string? text, out Version version)
     {

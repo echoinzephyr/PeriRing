@@ -13,6 +13,8 @@ internal static class Program
     {
         try
         {
+            DebugService.Enabled = args.Contains("--debug") || Preferences.Load().DebugMode;
+            DebugService.Log("app", "start", new { Version = UpdateService.CurrentLabel });
             if (args.Contains("--check-update"))
             {
                 var result = UpdateService.CheckAsync(CancellationToken.None).GetAwaiter().GetResult();
@@ -21,10 +23,17 @@ internal static class Program
                 Environment.ExitCode = result.Success ? 0 : 1;
                 return;
             }
-            if (args.Contains("--diagnose"))
+            if (args.Contains("--diagnose") || args.Contains("--export-diagnostics"))
             {
                 using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
                 var report = Task.Run(() => BatteryService.ScanAsync(timeout.Token)).GetAwaiter().GetResult();
+                if (args.Contains("--export-diagnostics"))
+                {
+                    DebugService.Enabled = true;
+                    DebugService.Observe(HidBattery.Enumerate(timeout.Token));
+                    File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "diagnostics-export.txt"), DebugService.Export(report));
+                    return;
+                }
                 File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "diagnostics.json"), JsonSerializer.Serialize(
                     new { Time = DateTimeOffset.Now, report.Devices, report.Providers,
                         HidInterfaces = HidBattery.Enumerate(timeout.Token).Select(d => new { d.Path, d.Name, d.Vendor, d.Product,
@@ -50,6 +59,7 @@ internal static class Program
         }
         catch (Exception ex)
         {
+            DebugService.Log("app", "fatal", new { Type = ex.GetType().Name, ex.HResult });
             File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "startup-error.txt"), ex.ToString());
             NativeWindow.Error(AppBrand.Name + "启动失败", ex.Message);
             Environment.ExitCode = 1;
@@ -65,7 +75,11 @@ public sealed partial class BatteryApplication : Application
     public BatteryApplication(string[] args)
     {
         this.args = args;
-        UnhandledException += (_, e) => File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "ui-error.txt"), e.Exception.ToString());
+        UnhandledException += (_, e) =>
+        {
+            DebugService.Log("ui", "unhandled", new { Type = e.Exception.GetType().Name, e.Exception.HResult });
+            File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "ui-error.txt"), e.Exception.ToString());
+        };
         File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "Initializing WinUI resources\n");
         InitializeComponent();
         File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "WinUI resources initialized\n");
@@ -83,6 +97,16 @@ public sealed partial class BatteryApplication : Application
             }
             File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "Creating tray controller\n");
             controller = new TrayController(args.Contains("--show") || args.Contains("--ui-preview") || args.Contains("--capture-ui") || args.Contains("--ui-self-test"), args.Contains("--ui-preview") || args.Contains("--ui-self-test"));
+            if (args.Contains("--debug")) { controller.Preferences.DebugMode = true; controller.Save(); }
+            int health = Array.IndexOf(args, "--update-health");
+            if (health >= 0 && health + 1 < args.Length)
+            {
+                string path = Path.GetFullPath(args[health + 1]);
+                string parent = Path.GetDirectoryName(path)!;
+                if (Path.GetDirectoryName(parent)?.TrimEnd('\\') == Path.GetTempPath().TrimEnd('\\')
+                    && Path.GetFileName(parent).StartsWith("PeriRing-update-") && Path.GetFileName(path) == "healthy")
+                    File.WriteAllText(path, UpdateService.CurrentLabel);
+            }
             File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "Tray controller ready\n");
             if (args.Contains("--ui-self-test")) VerifyAndExit();
             else if (args.Contains("--capture-ui")) CaptureAndExit();

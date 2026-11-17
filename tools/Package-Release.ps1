@@ -15,6 +15,7 @@ foreach ($name in $required) {
     if (!(Test-Path -LiteralPath (Join-Path $stage $name))) { throw "发布文件缺失：$name" }
 }
 $unexpected = Get-ChildItem -LiteralPath $stage -Recurse -File | Where-Object {
+    [IO.Path]::GetRelativePath($stage, $_.FullName) -match '(^|[\\/])data([\\/]|$)' -or
     ($_.Extension -notin @('.dll', '.exe', '.json', '.pri', '.xbf', '.ico', '.png', '.md', '.pdb') -and $_.Name -ne 'LICENSE') -or
         $_.Name -match '^(diagnostics|settings|battery-cache|self-test|ui-self-test|update-check)\.json$|-error\.txt$|^ui-startup\.log$|^winui-|^combined-|^icon-|^separated-'
 }

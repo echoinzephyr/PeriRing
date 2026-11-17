@@ -18,6 +18,10 @@ internal static class UpdateServiceTests
         Check(!UpdateService.Parse(newer, new(0, 2, 0, 0)).Available, "Three/four-part equal versions compare equally");
         Check(!UpdateService.Parse(newer, new(0, 3, 0)).Available, "Update checker never offers a downgrade");
         Check(UpdateService.Parse(newer, new(0, 1, 0)).Download?.Host == "github.com", "Update selects Windows x64 release asset");
+        var verified = newer.Replace("\"name\":\"PeriRing", "\"size\":123,\"digest\":\"sha256:" + new string('a', 64) + "\",\"name\":\"PeriRing");
+        Check(UpdateService.Parse(verified, new(0, 1, 0)) is { Size: 123, Sha256.Length: 64 }, "Release digest and size are captured");
+        Check(UpdateService.Parse(verified.Replace("sha256:", "invalid:"), new(0, 1, 0)).Sha256 is null, "Invalid digest cannot authorize installation");
+        Check(UpdateService.Parse(newer.Replace("/download/v0.2.0/", "/download/v0.1.0/"), new(0, 1, 0)).Download is null, "Asset URL must match the release tag");
         Check(UpdateService.Parse(newer.Replace("https://github.com/", "https://example.org/"), new(0, 1, 0)).Download is null,
             "External download URL is rejected");
         Check(!UpdateService.Parse(newer.Replace("\"draft\":false", "\"draft\":true"), new(0, 1, 0)).Available, "Draft release is not an update");

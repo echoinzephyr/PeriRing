@@ -31,6 +31,9 @@ internal sealed class ControllerProvider : IBatteryProvider
             int? value = null;
             // Many Xbox 360 emulators report a constant synthetic 1000/1000. Do not advertise that as a real percentage.
             bool emulator = controller.HardwareVendorId == 0x045E && controller.HardwareProductId == 0x028E;
+            DebugService.Log(Name, "battery-report", new { Device = DebugService.Key(id), Vendor = controller.HardwareVendorId,
+                Product = controller.HardwareProductId, SyntheticXbox360 = emulator, Remaining = report?.RemainingCapacityInMilliwattHours,
+                Full = report?.FullChargeCapacityInMilliwattHours, Status = report?.Status.ToString() });
             if (!emulator && report is not null && report.Status is BatteryStatus.Charging or BatteryStatus.Discharging or BatteryStatus.Idle
                 && report.FullChargeCapacityInMilliwattHours is > 0 && report.RemainingCapacityInMilliwattHours is >= 0)
             {

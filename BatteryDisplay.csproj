@@ -23,7 +23,7 @@
     <AssemblyTitle>环电 · PeriRing</AssemblyTitle>
     <Product>环电 · PeriRing</Product>
     <Description>环电 · PeriRing — 托盘外设电量</Description>
-    <Version>0.1.2</Version>
+    <Version>0.1.3</Version>
     <AssemblyName>BatteryDisplay</AssemblyName>
     <RootNamespace>BatteryDisplay</RootNamespace>
   </PropertyGroup>
@@ -31,6 +31,7 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.6.4" />
     <FrameworkReference Include="Microsoft.WindowsDesktop.App" />
     <EmbeddedResource Include="DeviceCatalog.json" />
+    <EmbeddedResource Include="tools\Apply-Update.ps1" />
     <None Update="README.md" CopyToPublishDirectory="PreserveNewest" />
     <None Update="SUPPORTED-DEVICES.md" CopyToPublishDirectory="PreserveNewest" />
     <None Update="THIRD-PARTY-NOTICES.md" CopyToPublishDirectory="PreserveNewest" />

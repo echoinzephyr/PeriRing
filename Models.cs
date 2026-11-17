@@ -28,6 +28,8 @@ internal sealed class Preferences
     public double PopupWidth { get; set; } = 450;
     public double PopupHeight { get; set; }
     public int RefreshSeconds { get; set; } = 60;
+    public bool AutomaticUpdates { get; set; } = true;
+    public bool DebugMode { get; set; }
     private static string FilePath => Path.Combine(AppContext.BaseDirectory, "data", "settings.json");
 
     public static Preferences Load()
