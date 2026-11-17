@@ -83,7 +83,7 @@ internal interface IHidBatteryAdapter
 internal sealed class UsbProvider : IBatteryProvider
 {
     internal static readonly IHidBatteryAdapter[] Adapters =
-    [new MchoseAdapter(), new SinowealthAdapter(), new CompxAdapter(), new LogitechAdapter(), new RazerAdapter(), new SonyAdapter(), new HeadsetAdapter(),
+    [new MchoseAdapter(), new MchoseHeadsetAdapter(), new SinowealthAdapter(), new CompxAdapter(), new LogitechAdapter(), new RazerAdapter(), new SonyAdapter(), new HeadsetAdapter(),
         new AsusAdapter(), new HyperXAdapter(), new KeychronAdapter(), new CorsairAdapter(), new SonixKeyboardAdapter()];
     public string Name => "USB / 2.4G 外设";
     public string Coverage => string.Join("、", Adapters.Select(a => a.Name));
