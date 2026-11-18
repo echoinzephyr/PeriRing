@@ -230,6 +230,12 @@ cd PeriRing
 
 `IBatteryProvider` 隔离不同读取渠道，`IHidBatteryAdapter` 隔离品牌协议；一个读取渠道失败时，其他渠道继续工作。新增协议应限制设备匹配范围，并验证响应与边界情况。
 
+## Contributors
+
+感谢参与设备适配、问题反馈和验证的贡献者：
+
+- [ACupOfMercury](https://github.com/ACupOfMercury)：反馈 MCHOSE V9 Turbo+ 2.4G 耳机兼容性问题，并提交独立电量适配、回归测试与验证文档。关联 [Issue #1](https://github.com/echoinzephyr/PeriRing/issues/1) 和 [PR #2](https://github.com/echoinzephyr/PeriRing/pull/2)；该适配目前仍待实机验证。
+
 ## 隐私与许可证
 
 设备读数、诊断和设置保存在本机。版本检查仅请求 GitHub 公开发布接口，不携带设备信息。程序仅进行状态读取，不修改 DPI、灯效、按键或手柄模式；索尼蓝牙适配监听已有报告，不主动切换增强模式。
