@@ -10,25 +10,30 @@
 
 ## 界面预览
 
-以下为程序实际渲染的 WinUI 界面，使用示例设备与电量展示功能；截图中的数值不代表对应型号的硬件验证结果。
+截图来自当前源码渲染的 WinUI 界面，使用示例设备和电量记录。设备的实测结果见 [支持范围](#支持范围与实测情况)。
 
 <table>
-  <tr><th>设备浮层</th><th>设备选择与优先级</th></tr>
+  <tr><th>设备浮层</th><th>设备详情与电量历史</th></tr>
   <tr>
     <td valign="top"><img src="docs/images/devices.png" width="340" alt="设备浮层：连接方式、电量、显示开关与手动刷新"></td>
-    <td valign="top"><img src="docs/images/device-order.png" width="340" alt="设备管理：显示开关、拖动排序与上下移动"></td>
+    <td valign="top"><img src="docs/images/device-detail.png" width="340" alt="设备详情：连接方式、别名、最近 7 天电量趋势及充电记录"></td>
   </tr>
 </table>
 
 <details>
-  <summary>展开查看设置、更新和诊断界面</summary>
-  <p>自动更新开关位于检查更新页；Debug、导出和清理入口位于设置底部。</p>
+  <summary>展开查看设备排序、低电量提醒、更新和诊断</summary>
   <table>
-    <tr><th>设置</th><th>自动更新</th><th>诊断与清理</th></tr>
+    <tr><th>设备开关与排序</th><th>设置</th><th>低电量提醒</th></tr>
     <tr>
-      <td valign="top"><img src="docs/images/settings.png" width="300" alt="紧凑分组设置及页面返回"></td>
-      <td valign="top"><img src="docs/images/updates.png" width="300" alt="自动更新开关、校验安装与启动失败回退说明"></td>
-      <td valign="top"><img src="docs/images/diagnostics.png" width="300" alt="Debug 开关、导出诊断包与清理诊断数据"></td>
+      <td valign="top"><img src="docs/images/device-order.png" width="270" alt="设备显示开关、拖动排序与上下移动"></td>
+      <td valign="top"><img src="docs/images/settings.png" width="270" alt="常规设置中的低电量提醒入口显示当前状态和阈值"></td>
+      <td valign="top"><img src="docs/images/battery-alerts.png" width="270" alt="低电量提醒页内的启用开关、阈值和测试通知"></td>
+    </tr>
+    <tr><th>检查更新</th><th>诊断与清理</th><th></th></tr>
+    <tr>
+      <td valign="top"><img src="docs/images/updates.png" width="270" alt="自动更新开关、校验安装与启动失败回退说明"></td>
+      <td valign="top"><img src="docs/images/diagnostics.png" width="270" alt="Debug 开关、导出诊断包与清理诊断数据"></td>
+      <td></td>
     </tr>
   </table>
 </details>
@@ -63,6 +68,8 @@
 | 设备卡片右侧图钉 | 选择该设备是否参与托盘显示 |
 
 关闭浮层后程序仍在托盘运行。通过右键菜单或浮层右下角的退出按钮结束程序。重复启动会唤出已经运行的实例。
+
+浮层开合和子页切换使用淡入淡出，页面切换时窗口保持原有位置和尺寸。动画遵循 Windows 的“动画效果”设置。
 
 ### 圆环怎样表示电量
 
@@ -114,6 +121,12 @@
 
 睡眠恢复后会重新读取电量。设置保存在程序旁的 `data/settings.json`，接收器电量和读取时间保存在 `data/battery-cache.json`，程序目录需要可写。开机启动登记当前程序路径，移动目录后应关闭再开启该选项。
 
+### 低电量提醒
+
+在「设置 → 常规 → 低电量提醒」查看当前开关状态和阈值。进入后可开启提醒、选择阈值或发送测试通知。v0.1.5 下载包的这三项直接位于「设置 → 常规」。
+
+点击“测试通知”后可以在 Windows 通知中心查看测试消息。若应用提示 Windows 已限制通知，请在「Windows 设置 → 系统 → 通知」检查环电的通知权限。设备休眠或断开时，已经保留的电量读数只用于显示。
+
 ## 支持范围与实测情况
 
 环电按协议适配设备。**同一品牌不代表全部型号兼容，能识别设备名称也不等于能读取电量。** 精确型号、读取渠道与验证状态见 [SUPPORTED-DEVICES.md](SUPPORTED-DEVICES.md)。
@@ -143,7 +156,7 @@
 
 全自动更新自 v0.1.3 起提供。v0.1.2 及更早的已发布版本需先手动下载、替换一次，之后即可使用自动更新。
 
-替换前会备份被更新的文件，保留 `data` 中的设置、排序及电量缓存。若替换失败或新版未通过启动检查，会尝试恢复旧文件并启动旧版；自动更新失败回退后暂停自动重试 24 小时，避免循环。缺少校验信息、文件不完整或路径不合法时不会安装。手动升级仍可退出后解压覆盖，保留 `data` 文件夹。
+替换前会备份被更新的文件，保留 `data` 中的设置、排序、别名和电量记录。若替换失败或新版未通过启动检查，会尝试恢复旧文件并启动旧版；自动更新失败回退后暂停自动重试 24 小时，避免循环。缺少校验信息、文件不完整或路径不合法时不会安装。手动升级仍可退出后解压覆盖，保留 `data` 文件夹。
 
 ## 诊断与 Debug
 
@@ -223,13 +236,15 @@ cd PeriRing
 | `--capture-ui` | 读取真实设备，生成 WinUI 页面截图后退出 |
 | `--ui-preview --capture-ui` | 用示例设备生成界面截图，不将示例值用于真实设备读取 |
 
-当前核心检查包含 170 项，原生界面交互检查包含 17 项，覆盖开关、页面返回、滚动恢复、滚动条间距等。检查通过只能说明相应逻辑通过验证，不能替代所有设备型号的实测。
+当前源码包含 183 项核心检查和 30 项原生界面检查。检查覆盖电量采样、阈值和别名保存、页面返回、滚动恢复，以及刷新期间的动画播放。各设备的兼容性以真实硬件验证为准。
 
 ### 项目结构
 
 | 文件 / 目录 | 用途 |
 |---|---|
 | `WinUI/` | 托盘、浮层、菜单、设置与截图 |
+| `WinUI/BatteryNotifications.cs`、`LowBatteryAlerts.cs` | Windows 应用通知及低电量提醒规则 |
+| `BatteryHistory.cs`、`BatteryJournal.cs` | 休眠设备的最后读数缓存及 7 天电量历史 |
 | `TrayIcon.cs`、`SegmentedRing.cs` | 图标绘制、DPI 尺寸与设备分段规则 |
 | `Providers.cs`、`DeviceScanner.cs` | 读取渠道聚合与蓝牙扫描 |
 | `HidTransport.cs`、`*Adapter.cs` | HID 通信与各品牌协议适配 |
