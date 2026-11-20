@@ -3,6 +3,8 @@ using Microsoft.UI.Text;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
+using Microsoft.UI.Xaml.Automation.Provider;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
@@ -151,7 +153,8 @@ internal sealed partial class FlyoutWindow : Window
         {
             motionRevision++;
             windowMotion?.Stop();
-            root.Opacity = 1;
+            pageMotion?.Stop();
+            pageMotion = null;
         }
         UpdateView(opening);
         if (opening)
@@ -164,7 +167,7 @@ internal sealed partial class FlyoutWindow : Window
         Activate();
         NativeWindow.Show(hwnd);
         visible = true;
-        if (opening) windowMotion = Animate(root, true, 160);
+        if (opening) windowMotion = Fade(true, 210, null, root);
         if (opening) controller.Refresh();
     }
     private void HideFlyout()
@@ -174,13 +177,12 @@ internal sealed partial class FlyoutWindow : Window
         deactivateTimer.Stop();
         windowMotion?.Stop();
         int revision = ++motionRevision;
-        windowMotion = Animate(root, false, 100, () =>
+        windowMotion = Fade(false, 150, () =>
         {
             if (revision != motionRevision || visible || AllowClose) return;
             AppWindow.Hide();
             windowMotion?.Stop();
-            root.Opacity = 1;
-        });
+        }, root);
     }
     private void Navigate(string destination)
     {
@@ -193,6 +195,7 @@ internal sealed partial class FlyoutWindow : Window
         UpdateView();
     }
     public void ShowSettings() => Navigate("settings");
+    private void ShowBatteryAlerts() => Navigate("battery-alerts");
     public void ShowDevices() { navigation.Clear(); page = "devices"; UpdateView(); }
     public void ShowSupport() => Navigate("support");
     public void ShowDeviceManagement() => Navigate("manage");
@@ -244,17 +247,19 @@ internal sealed partial class FlyoutWindow : Window
 
     public void ApplySettings() => UpdateView();
 
-    private Storyboard? Animate(FrameworkElement target, bool entering, int milliseconds, Action? completed = null)
+    private Storyboard? Fade(bool entering, int milliseconds, Action? completed, params FrameworkElement[] surfaces)
     {
-        target.Opacity = 1;
-        target.RenderTransform = null;
         if (!uiSettings.AnimationsEnabled) { completed?.Invoke(); return null; }
         var duration = new Duration(TimeSpan.FromMilliseconds(milliseconds));
-        var easing = new CubicEase { EasingMode = entering ? EasingMode.EaseOut : EasingMode.EaseIn };
-        var fade = new DoubleAnimation { From = entering ? .15 : 1, To = entering ? 1 : 0, Duration = duration, EasingFunction = easing };
-        Storyboard.SetTarget(fade, target); Storyboard.SetTargetProperty(fade, "Opacity");
         var animation = new Storyboard();
-        animation.Children.Add(fade);
+        var easing = new QuadraticEase { EasingMode = entering ? EasingMode.EaseOut : EasingMode.EaseIn };
+        foreach (var surface in surfaces)
+        {
+            var fade = new DoubleAnimation { From = entering ? 0 : 1, To = entering ? 1 : 0, Duration = duration, EasingFunction = easing };
+            Storyboard.SetTarget(fade, surface);
+            Storyboard.SetTargetProperty(fade, nameof(UIElement.Opacity));
+            animation.Children.Add(fade);
+        }
         if (completed is not null) animation.Completed += (_, _) => completed();
         animation.Begin();
         return animation;
@@ -285,7 +290,7 @@ internal sealed partial class FlyoutWindow : Window
                 .Concat(HistoricalDevices().Select(d => $"{d.Id}|{JournalDisplayName(d)}"))) : "";
             bool changed = page switch
             {
-                "settings" => false,
+                "settings" or "battery-alerts" => false,
                 "updates" => renderedUpdate != controller.Update || renderedCheckingUpdates != controller.CheckingUpdates || renderedUpdateStatus != controller.UpdateStatus,
                 "support" => !ReferenceEquals(renderedProviders, controller.Providers),
                 "manage" => renderedManagement != management,
@@ -293,11 +298,11 @@ internal sealed partial class FlyoutWindow : Window
                     || controller.Devices.Count == 0 && renderedRefreshing != controller.Refreshing
             };
             if (!force && !pageChanged && !changed) return;
-            pageMotion?.Stop();
-            body.Opacity = 1;
+            if (pageChanged) pageMotion?.Stop();
             if (pageChanged || force) BuildHeader();
             body.Children.Clear();
             if (page == "settings") BuildSettings();
+            else if (page == "battery-alerts") BuildBatteryAlerts();
             else if (page == "manage") BuildManagement();
             else if (page == "support") BuildSupport();
             else if (page == "updates") BuildUpdates();
@@ -312,7 +317,8 @@ internal sealed partial class FlyoutWindow : Window
             renderedCheckingUpdates = controller.CheckingUpdates;
             renderedUpdateStatus = controller.UpdateStatus;
             renderedRefreshing = controller.Refreshing;
-            if (pageChanged && visible) pageMotion = Animate(body, true, 120);
+            // The header and viewport survive content refreshes while a page transition is running.
+            if (pageChanged && visible) pageMotion = Fade(true, 200, null, header, scroll);
             int revision = ++layoutRevision;
             string destination = page;
             DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
@@ -340,6 +346,7 @@ internal sealed partial class FlyoutWindow : Window
         title.Text = page switch
         {
             "settings" => "设置", "support" => "支持设备", "manage" => "设备开关与排序", "updates" => "检查更新",
+            "battery-alerts" => "低电量提醒",
             _ => IsDeviceDetail ? "设备详情" : AppBrand.Name
         };
         title.VerticalAlignment = VerticalAlignment.Center;
@@ -443,29 +450,13 @@ internal sealed partial class FlyoutWindow : Window
         AutomationProperties.SetName(interval, "后台刷新间隔");
         if (interval.SelectedIndex < 0) interval.SelectedIndex = 2;
         interval.SelectionChanged += (_, _) => { if (!updating && interval.SelectedIndex >= 0) { controller.Preferences.RefreshSeconds = new[] { 15, 30, 60, 300 }[interval.SelectedIndex]; controller.Save(); } };
-        var thresholds = Preferences.LowBatteryThresholds;
-        var threshold = new ComboBox { Width = 108, MinWidth = 0, FontSize = 12, ItemsSource = thresholds.Select(value => $"{value}%").ToArray(),
-            SelectedIndex = Array.IndexOf(thresholds, controller.Preferences.LowBatteryThreshold) };
-        AutomationProperties.SetName(threshold, "低电量阈值");
-        threshold.SelectionChanged += (_, _) =>
-        {
-            if (!updating && threshold.SelectedIndex >= 0) controller.SetLowBatteryThreshold(thresholds[threshold.SelectedIndex]);
-        };
         body.Children.Add(SectionLabel("常规"));
-        var notificationStatus = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
+        string alertState = controller.Preferences.LowBatteryAlerts ? "已开启" : "已关闭";
         body.Children.Add(SettingsGroup(
-            ToggleSetting("\uE7E7", "低电量提醒", "使用 Windows 通知", controller.Preferences.LowBatteryAlerts,
-                controller.SetLowBatteryAlerts),
-            SettingsRow("\uEBA7", "低电量阈值", null, threshold),
-            SettingsLink("\uE91C", "测试通知", null, () =>
-            {
-                notificationStatus.Text = controller.TestBatteryNotification();
-                notificationStatus.Visibility = Visibility.Visible;
-            }),
+            SettingsLink("\uE7E7", "低电量提醒", $"{alertState} · 阈值 {controller.Preferences.LowBatteryThreshold}%", ShowBatteryAlerts),
             ToggleSetting("\uE7E8", "开机启动", null, TrayController.StartupEnabled(), controller.SetStartup),
             SettingsRow("\uE790", "外观", null, theme),
             SettingsRow("\uE72C", "后台刷新", null, interval)));
-        body.Children.Add(notificationStatus);
         body.Children.Add(SectionLabel("关于"));
         body.Children.Add(SettingsGroup(
             SettingsLink("\uE946", "支持设备", null, ShowSupport),
@@ -476,6 +467,29 @@ internal sealed partial class FlyoutWindow : Window
                 value => { controller.Preferences.DebugMode = value; controller.Save(); }),
             SettingsLink("\uE9D9", "导出诊断包", "设备接口、适配状态和日志，不会自动上传", controller.ExportDiagnostics),
             SettingsLink("\uE74D", "清理诊断数据", "删除本地日志及导出包，保留设备设置", controller.ClearDiagnostics)));
+    }
+
+    private void BuildBatteryAlerts()
+    {
+        var thresholds = Preferences.LowBatteryThresholds;
+        var threshold = new ComboBox { Width = 108, MinWidth = 0, FontSize = 12, ItemsSource = thresholds.Select(value => $"{value}%").ToArray(),
+            SelectedIndex = Array.IndexOf(thresholds, controller.Preferences.LowBatteryThreshold) };
+        AutomationProperties.SetName(threshold, "低电量阈值");
+        threshold.SelectionChanged += (_, _) =>
+        {
+            if (!updating && threshold.SelectedIndex >= 0) controller.SetLowBatteryThreshold(thresholds[threshold.SelectedIndex]);
+        };
+        var notificationStatus = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
+        body.Children.Add(SettingsGroup(
+            ToggleSetting("\uE7E7", "启用提醒", "使用 Windows 通知", controller.Preferences.LowBatteryAlerts,
+                controller.SetLowBatteryAlerts),
+            SettingsRow("\uEBA7", "低电量阈值", null, threshold),
+            SettingsLink("\uE91C", "测试通知", null, () =>
+            {
+                notificationStatus.Text = controller.TestBatteryNotification();
+                notificationStatus.Visibility = Visibility.Visible;
+            })));
+        body.Children.Add(notificationStatus);
     }
 
     private void BuildUpdates()
@@ -664,6 +678,10 @@ internal sealed partial class FlyoutWindow : Window
         }
         pinned = true;
         ShowSettings(); ShowFlyout();
+        var openingFade = windowMotion;
+        await Task.Delay(45);
+        Check(uiSettings.AnimationsEnabled ? openingFade?.GetCurrentState() == ClockState.Active : openingFade is null,
+            "Opening fade plays when enabled in Windows");
         await Task.Delay(300);
         var minimumSize = NativeWindow.MinimumTrackingSize(hwnd);
         Check(minimumSize.Width >= Math.Ceiling(340 * NativeWindow.Scale(hwnd))
@@ -697,7 +715,7 @@ internal sealed partial class FlyoutWindow : Window
             Check(visible && NativeWindow.IsVisible(hwnd) && root.Opacity > .99, "Rapid reopen is not hidden by an old close animation");
             ShowSupport(); ShowSettings();
             await Task.Delay(300);
-            Check(Descendants(root).OfType<ToggleSwitch>().Count() == 5 && body.Opacity > .99, "Rapid page navigation settles on visible settings controls");
+            Check(Descendants(root).OfType<ToggleSwitch>().Count() == 4 && body.Opacity > .99, "Rapid page navigation settles on visible settings controls");
             AppWindow.Move(new Windows.Graphics.PointInt32(AppWindow.Position.X - 80, AppWindow.Position.Y));
             var expectedPosition = AppWindow.Position;
             var expectedSize = AppWindow.Size;
@@ -747,12 +765,44 @@ internal sealed partial class FlyoutWindow : Window
             var scrollBounds = scroll.TransformToVisual(root).TransformBounds(new Windows.Foundation.Rect(0, 0, scroll.ActualWidth, scroll.ActualHeight));
             Check(root.ActualWidth - scrollBounds.Right >= 6 && root.ActualWidth - scrollBounds.Right <= 10,
                 "Scrollbar stays near the outer edge instead of consuming card width");
+            Button NamedButton(string title) => Descendants(root).OfType<Button>().Single(b => AutomationProperties.GetName(b) == title);
+            void Invoke(Button button) => ((IInvokeProvider)FrameworkElementAutomationPeer.CreatePeerForElement(button).GetPattern(PatternInterface.Invoke)).Invoke();
+            double alertsReturnOffset = scroll.VerticalOffset;
+            Check(!Descendants(root).Any(c => AutomationProperties.GetName(c) is "低电量阈值" or "测试通知"),
+                "General settings only shows the battery alert entry");
+            Invoke(NamedButton("低电量提醒"));
+            await Task.Delay(45);
+            var alertsFade = pageMotion;
+            Check(uiSettings.AnimationsEnabled ? alertsFade?.GetCurrentState() == ClockState.Active : alertsFade is null,
+                "Page fade plays when enabled in Windows");
+            UpdateView(true);
+            Check(ReferenceEquals(pageMotion, alertsFade) && (!uiSettings.AnimationsEnabled || alertsFade?.GetCurrentState() == ClockState.Active),
+                "Rebuilding the same page leaves its transition running");
+            await Task.Delay(160);
             var threshold = Descendants(root).OfType<ComboBox>().Single(c => AutomationProperties.GetName(c) == "低电量阈值");
+            var enableAlerts = Descendants(root).OfType<ToggleSwitch>().Single(t => AutomationProperties.GetName(t) == "启用提醒");
+            bool originalAlerts = enableAlerts.IsOn;
+            enableAlerts.IsOn = !originalAlerts;
+            Check(page == "battery-alerts" && controller.Preferences.LowBatteryAlerts == !originalAlerts && Descendants(root).Contains(enableAlerts),
+                "Alerts page groups the controls and retains the toggle when saving");
+            enableAlerts.IsOn = originalAlerts;
             int initialThreshold = threshold.SelectedIndex;
             threshold.SelectedIndex = 6;
             Check(controller.Preferences.LowBatteryThreshold == 40 && Preferences.Load().LowBatteryThreshold == 40,
                 "The settings threshold is applied and saved");
-            threshold.SelectedIndex = initialThreshold;
+            Invoke(NamedButton("测试通知"));
+            await Task.Delay(150);
+            Check(Descendants(root).OfType<TextBlock>().Any(t => t.Visibility == Visibility.Visible && t.Text == "预览模式不发送系统通知。"),
+                "Test notification reports its outcome in the alerts page");
+            Invoke(NamedButton("返回上一页"));
+            await Task.Delay(200);
+            Check(page == "settings" && Math.Abs(scroll.VerticalOffset - alertsReturnOffset) < 1
+                && Descendants(NamedButton("低电量提醒")).OfType<TextBlock>().Any(t => t.Text.EndsWith("阈值 40%", StringComparison.Ordinal)),
+                "Back from alerts restores settings and shows the saved threshold");
+            ShowBatteryAlerts();
+            await Task.Delay(150);
+            Descendants(root).OfType<ComboBox>().Single(c => AutomationProperties.GetName(c) == "低电量阈值").SelectedIndex = initialThreshold;
+            GoBack();
             ShowDeviceManagement();
             var originalWidth = AppWindow.Size.Width;
             var originalHeight = AppWindow.Size.Height;
@@ -775,7 +825,8 @@ internal sealed partial class FlyoutWindow : Window
             AppWindow.Resize(new Windows.Graphics.SizeInt32(originalWidth, originalHeight));
         }
         finally { controller.Preferences.RingIcons = original; controller.Save(); }
-        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "ui-self-test.json"), System.Text.Json.JsonSerializer.Serialize(new { Passed = failures.Count == 0, Checks = count, Failures = failures }));
+        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "ui-self-test.json"), System.Text.Json.JsonSerializer.Serialize(new
+            { Passed = failures.Count == 0, Checks = count, WindowsAnimationsEnabled = uiSettings.AnimationsEnabled, Failures = failures }));
         if (failures.Count > 0) Environment.ExitCode = 1;
     }
 }
