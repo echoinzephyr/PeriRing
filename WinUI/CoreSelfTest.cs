@@ -13,6 +13,8 @@ internal static class CoreSelfTest
         checks += AutoUpdateTests.Run(failures);
         checks += CacheMaintenanceTests.Run(failures);
         checks += BatteryHistoryTests.Run(failures);
+        checks += LowBatteryAlertTests.Run(failures);
+        checks += BatteryJournalTests.Run(failures);
         if (NativeBattery.NormalizeAddress("aa:bb:cc:dd:ee:ff") != "AABBCCDDEEFF") failures.Add("Bluetooth address normalization");
         foreach (int level in new[] { 0, 9, 20, 40, 75, 80, 100 })
         {

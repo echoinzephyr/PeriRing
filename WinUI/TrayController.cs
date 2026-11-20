@@ -23,9 +23,11 @@ internal sealed class TrayController : IDisposable
     private DateTimeOffset lastCleanup = DateTimeOffset.MinValue;
     private int trayIconSize;
     private readonly Forms.NotifyIcon manager = new();
-    private readonly HashSet<string> alerted = [];
+    private readonly LowBatteryAlerts lowBatteryAlerts = new();
+    private readonly BatteryNotifications notifications;
     private readonly CancellationTokenSource lifetime = new();
     private readonly BatteryHistory batteryHistory = BatteryHistory.Load();
+    private readonly BatteryJournal journal;
     private readonly EventWaitHandle showEvent = new(false, EventResetMode.AutoReset, "Local\\BatteryDisplay.ShowWindow");
     private readonly RegisteredWaitHandle showWait;
     private readonly FlyoutWindow window;
@@ -40,12 +42,17 @@ internal sealed class TrayController : IDisposable
     public TrayController(bool show, bool preview)
     {
         this.preview = preview;
+        journal = preview ? new() : BatteryJournal.Load(Path.Combine(AppContext.BaseDirectory, "data", "battery-history.json"), DateTimeOffset.Now);
         DebugService.Enabled = Preferences.DebugMode;
         window = new FlyoutWindow(this);
         File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "Device flyout ready\n");
         menuWindow = new TrayMenuWindow(this);
         File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "Tray menu ready\n");
         hoverWindow = new HoverWindow();
+        notifications = new(() => dispatcher.TryEnqueue(() =>
+        {
+            if (!quitting) { HideHover(); window.ShowDevices(); window.ShowFlyout(); }
+        }));
         File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "Hover window ready\n");
         hoverDelay = dispatcher.CreateTimer();
         hoverDelay.Interval = TimeSpan.FromMilliseconds(650);
@@ -103,8 +110,13 @@ internal sealed class TrayController : IDisposable
                 new("preview-headset", "蓝牙耳机", true, 38, "Windows 上报", "蓝牙"),
                 new("preview-off", "RK61 键盘", false, 80, "Windows 上报")];
             Updated = DateTimeOffset.Now;
+            var demo = Devices[0];
+            journal.Observe([demo with { Battery = 100, VendorDisplay = 100, Charging = true }], Updated.Value.AddDays(-2));
+            journal.Observe([demo with { Battery = 82, VendorDisplay = 80 }], Updated.Value.AddMinutes(-15));
+            journal.Observe([demo], Updated.Value);
         }
-        if (show) window.ShowFlyout();
+        if (!preview) notifications.Register();
+        if (show || !preview && notifications.WasActivated()) window.ShowFlyout();
         else if (!preview) dispatcher.TryEnqueue(Refresh);
     }
     private void PowerChanged(object sender, PowerModeChangedEventArgs e)
@@ -113,6 +125,7 @@ internal sealed class TrayController : IDisposable
     public List<Peripheral> PresentedDevices => Preferences.Present(Devices);
     public List<Peripheral> ManagedDevices => PresentedDevices.Where(d => d.Battery.HasValue || d.Gauge.HasValue || d.Charging).ToList();
     public List<Peripheral> TrayDevices => PresentedDevices.Where(d => d.CanShow && !Preferences.HiddenDevices.Contains(d.Id)).ToList();
+    public List<BatteryJournalDevice> JournalDevices => journal.Read(DateTimeOffset.Now);
     private void ArmHover()
     {
         if (menuWindow.IsOpen || window.IsFlyoutVisible) return;
@@ -136,22 +149,29 @@ internal sealed class TrayController : IDisposable
             timeout.CancelAfter(TimeSpan.FromSeconds(35));
             var report = await BatteryService.ScanAsync(timeout.Token);
             if (quitting) return;
-            Devices = batteryHistory.Apply(report.Devices, DateTimeOffset.Now);
+            var now = DateTimeOffset.Now;
+            journal.Observe(report.Devices, now);
+            Devices = batteryHistory.Apply(report.Devices, now);
             batteryHistory.Save();
             Providers = report.Providers;
             bool added = false;
             foreach (var d in ManagedDevices)
                 if (!Preferences.DeviceOrder.Contains(d.Id)) { Preferences.DeviceOrder.Add(d.Id); added = true; }
             if (added) Preferences.Save();
-            Updated = DateTimeOffset.Now;
+            Updated = now;
             Error = null;
         }
-        catch (OperationCanceledException) { if (!quitting) Error = "读取超时，稍后可重试"; }
-        catch (Exception ex) { if (!quitting) Error = ex.Message; }
+        catch (OperationCanceledException) { journal.BreakContinuity(); if (!quitting) Error = "读取超时，稍后可重试"; }
+        catch (Exception ex) { journal.BreakContinuity(); if (!quitting) Error = ex.Message; }
         finally
         {
             Refreshing = false;
-            if (!quitting) { UpdateIcons(); window.UpdateView(); }
+            if (!quitting)
+            {
+                UpdateIcons();
+                window.UpdateView();
+                if (Error is null) CheckLowBattery();
+            }
         }
     }
     private void UpdateIcons()
@@ -159,22 +179,56 @@ internal sealed class TrayController : IDisposable
         var devices = TrayDevices;
         var old = manager.Icon;
         trayIconSize = NativeWindow.TrayIconSize();
-        manager.Icon = Preferences.RingIcons ? TrayIcon.CreateCombined(devices, Error is not null, trayIconSize)
-            : TrayIcon.Create(devices.Select(d => d.DisplayBattery).Where(v => v.HasValue).Min(), devices.Count > 0, Error is not null, false, trayIconSize);
+        manager.Icon = Preferences.RingIcons ? TrayIcon.CreateCombined(devices, Error is not null, trayIconSize, Preferences.LowBatteryThreshold)
+            : TrayIcon.Create(devices.Select(d => d.DisplayBattery).Min(), devices.Count > 0, Error is not null, false, trayIconSize, Preferences.LowBatteryThreshold);
         old?.Dispose();
         // Use the compact system tooltip whenever all lines fit; larger lists use the same compact layout in WinUI.
-        string tooltip = string.Join("\n", devices.Select(d => $"{d.Name.Replace("迈从 · ", "")}: {d.TooltipLevel}"));
+        string tooltip = string.Join("\n", devices.Select(d => $"{d.DisplayName}: {d.TooltipLevel}"));
         if (devices.Count == 0) tooltip = AppBrand.Name + "：暂无可显示电量的在线设备";
         manager.Text = tooltip.Length <= 127 ? tooltip : "";
         manager.Visible = true;
         if (hoverWindow.IsVisible) hoverWindow.ShowValues(devices, Preferences);
-        foreach (var d in devices)
+    }
+    private void CheckLowBattery() => lowBatteryAlerts.Observe(PresentedDevices, Preferences.LowBatteryAlerts, device =>
+        !Preferences.HiddenDevices.Contains(device.Id) && notifications.Send("外设电量偏低", $"{device.DisplayName}：{device.Level}", DebugService.Key(device.Id)).Id != 0,
+        Preferences.LowBatteryThreshold);
+
+    public void SetLowBatteryAlerts(bool enabled)
+    {
+        Preferences.LowBatteryAlerts = enabled;
+        Save();
+        if (enabled && !preview) Refresh();
+    }
+
+    public void SetLowBatteryThreshold(int threshold)
+    {
+        Preferences.LowBatteryThreshold = threshold;
+        Save();
+        if (Preferences.LowBatteryAlerts) Refresh();
+    }
+
+    public bool SetDeviceAlias(string id, string? alias)
+    {
+        string? previous = Preferences.DeviceAliases.GetValueOrDefault(id);
+        if (alias is null) Preferences.DeviceAliases.Remove(id);
+        else Preferences.DeviceAliases[id] = alias;
+        try { Preferences.Save(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            if (Error is null && Preferences.LowBatteryAlerts && !d.IsCached && !d.Charging && d.GaugeValue <= 20
-                && alerted.Add(d.Id))
-                manager.ShowBalloonTip(5000, AppBrand.Name + " · 电量偏低", $"{d.Name}：{d.Level}", Forms.ToolTipIcon.Warning);
-            if (!d.IsCached && d.GaugeValue > 25) alerted.Remove(d.Id);
+            if (previous is null) Preferences.DeviceAliases.Remove(id);
+            else Preferences.DeviceAliases[id] = previous;
+            return false;
         }
+        UpdateIcons();
+        window.UpdateView();
+        return true;
+    }
+
+    public string TestBatteryNotification()
+    {
+        if (preview) return "预览模式不发送系统通知。";
+        return notifications.Send("环电 · 通知测试", "这是一条测试通知，不代表任何设备的实际电量。", "test").Error
+            ?? "Windows 已接收测试通知。若没看到横幅，请查看通知中心。";
     }
     public void ToggleDevice(string id, bool visible)
     {
@@ -310,6 +364,7 @@ internal sealed class TrayController : IDisposable
         hoverDelay.Stop(); hoverTracking.Stop();
         showWait.Unregister(null);
         showEvent.Dispose();
+        notifications.Dispose();
         var managerImage = manager.Icon; manager.Dispose(); managerImage?.Dispose();
         window.AllowClose = true;
         window.Close();

@@ -43,7 +43,7 @@ internal sealed class TrayMenuWindow : Window
         var devices = new MenuFlyoutSubItem { Text = "显示的设备", Icon = new FontIcon { Glyph = "\uE772" } };
         foreach (var d in controller.ManagedDevices)
         {
-            var toggle = new ToggleMenuFlyoutItem { Text = $"{d.Name} — {d.TooltipLevel}", IsChecked = !controller.Preferences.HiddenDevices.Contains(d.Id) };
+            var toggle = new ToggleMenuFlyoutItem { Text = $"{d.DisplayName} — {d.TooltipLevel}", IsChecked = !controller.Preferences.HiddenDevices.Contains(d.Id) };
             toggle.Click += (_, _) => controller.ToggleDevice(d.Id, toggle.IsChecked);
             devices.Items.Add(toggle);
         }
@@ -61,7 +61,7 @@ internal sealed class TrayMenuWindow : Window
         official.Click += (_, _) => { controller.Preferences.PreferVendorDisplay = official.IsChecked; controller.Save(); };
         menu.Items.Add(official);
         var alerts = new ToggleMenuFlyoutItem { Text = "低电量提醒", IsChecked = controller.Preferences.LowBatteryAlerts };
-        alerts.Click += (_, _) => { controller.Preferences.LowBatteryAlerts = alerts.IsChecked; controller.Save(); };
+        alerts.Click += (_, _) => controller.SetLowBatteryAlerts(alerts.IsChecked);
         menu.Items.Add(alerts);
         var appearance = new MenuFlyoutSubItem { Text = "外观", Icon = new FontIcon { Glyph = "\uE790" } };
         foreach (var (label, value) in new[] { ("跟随系统", "System"), ("浅色", "Light"), ("深色", "Dark") })

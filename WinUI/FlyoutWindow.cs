@@ -13,7 +13,7 @@ using Windows.UI;
 
 namespace BatteryDisplay;
 
-internal sealed class FlyoutWindow : Window
+internal sealed partial class FlyoutWindow : Window
 {
     private readonly TrayController controller;
     private readonly Grid root = new();
@@ -193,6 +193,7 @@ internal sealed class FlyoutWindow : Window
         UpdateView();
     }
     public void ShowSettings() => Navigate("settings");
+    public void ShowDevices() { navigation.Clear(); page = "devices"; UpdateView(); }
     public void ShowSupport() => Navigate("support");
     public void ShowDeviceManagement() => Navigate("manage");
     public void ShowUpdates() => Navigate("updates");
@@ -274,8 +275,14 @@ internal sealed class FlyoutWindow : Window
             ToolTipService.SetToolTip(refresh, refreshHint);
             AutomationProperties.SetName(refresh, refreshHint);
             bool pageChanged = renderedPage != page;
-            string deviceState = page == "devices" ? string.Join("\n", controller.PresentedDevices.Select(d => $"{d.Id}|{d.Name}|{d.Transport}|{d.Connected}|{d.Level}|{d.Charging}|{d.IsCached}|{d.Note}")) : "";
-            string management = page == "manage" ? string.Join("\n", controller.ManagedDevices.Select(d => $"{d.Id}|{d.Level}|{d.IsCached}|{d.Connected}")) : "";
+            if (!pageChanged && IsDeviceDetail)
+            {
+                UpdateDeviceDetail();
+                return;
+            }
+            string deviceState = page == "devices" ? controller.Preferences.LowBatteryThreshold + "\n" + string.Join("\n", controller.PresentedDevices.Select(d => $"{d.Id}|{d.DisplayName}|{d.Transport}|{d.Connected}|{d.Level}|{d.GaugeValue}|{d.Charging}|{d.IsCached}|{d.Note}")) : "";
+            string management = page == "manage" ? string.Join("\n", controller.ManagedDevices.Select(d => $"{d.Id}|{d.DisplayName}|{d.Level}|{d.IsCached}|{d.Connected}")
+                .Concat(HistoricalDevices().Select(d => $"{d.Id}|{JournalDisplayName(d)}"))) : "";
             bool changed = page switch
             {
                 "settings" => false,
@@ -294,6 +301,7 @@ internal sealed class FlyoutWindow : Window
             else if (page == "manage") BuildManagement();
             else if (page == "support") BuildSupport();
             else if (page == "updates") BuildUpdates();
+            else if (IsDeviceDetail) BuildDeviceDetail();
             else BuildDevices();
             renderedPage = page;
             renderedDeviceState = deviceState;
@@ -329,7 +337,11 @@ internal sealed class FlyoutWindow : Window
         UIElement leading = page == "devices" ? new Image { Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "periring-64.png"))), Width = 24, Height = 24, VerticalAlignment = VerticalAlignment.Center }
             : IconButton("\uE72B", "返回上一页", GoBack);
         row.Children.Add(leading);
-        title.Text = page == "settings" ? "设置" : page == "support" ? "支持设备" : page == "manage" ? "设备开关与排序" : page == "updates" ? "检查更新" : AppBrand.Name;
+        title.Text = page switch
+        {
+            "settings" => "设置", "support" => "支持设备", "manage" => "设备开关与排序", "updates" => "检查更新",
+            _ => IsDeviceDetail ? "设备详情" : AppBrand.Name
+        };
         title.VerticalAlignment = VerticalAlignment.Center;
         Grid.SetColumn(title, 1);
         row.Children.Add(title);
@@ -387,11 +399,11 @@ internal sealed class FlyoutWindow : Window
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var ring = new Grid { Width = 42, Height = 42, VerticalAlignment = VerticalAlignment.Center };
         ring.Children.Add(new ProgressRing { IsIndeterminate = false, Value = d.GaugeValue ?? 0, Minimum = 0, Maximum = 100, Width = 42, Height = 42,
-            Foreground = d.IsPresent && d.GaugeValue <= 20 ? new SolidColorBrush(Color.FromArgb(255, 231, 133, 75)) : Accent, Opacity = d.IsPresent ? 1 : .45 });
+            Foreground = d.IsPresent && controller.Preferences.IsLow(d.GaugeValue) ? new SolidColorBrush(Color.FromArgb(255, 231, 133, 75)) : Accent, Opacity = d.IsPresent ? 1 : .45 });
         ring.Children.Add(new FontIcon { Glyph = DeviceGlyph(d), FontSize = 16, Opacity = d.IsPresent ? .9 : .45 });
         row.Children.Add(ring);
         var text = new StackPanel { Spacing = 3, VerticalAlignment = VerticalAlignment.Center };
-        text.Children.Add(new TextBlock { Text = d.Name.Replace("迈从 · ", ""), FontSize = 14, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
+        text.Children.Add(DeviceDetailLink(d.Id, d.DisplayName, 14));
         string detail = d.IsCached ? d.Transport + " · 上次读数" : !d.Connected ? d.State : d.Transport + (d.Charging ? " · 充电中" : !d.CanShow ? " · 暂未取得电量" : "");
         text.Children.Add(new TextBlock { Text = detail, FontSize = 11, Opacity = .65, TextTrimming = TextTrimming.CharacterEllipsis });
         Grid.SetColumn(text, 1); row.Children.Add(text);
@@ -401,11 +413,11 @@ internal sealed class FlyoutWindow : Window
         Grid.SetColumn(level, 2); row.Children.Add(level);
         var toggle = new ToggleButton { Content = new FontIcon { Glyph = "\uE718", FontSize = 13 }, IsChecked = !controller.Preferences.HiddenDevices.Contains(d.Id), Width = 28, Height = 28, Padding = new Thickness(0), VerticalAlignment = VerticalAlignment.Center };
         ToolTipService.SetToolTip(toggle, "在托盘显示这个设备");
-        AutomationProperties.SetName(toggle, $"在托盘显示 {d.Name}");
+        AutomationProperties.SetName(toggle, $"在托盘显示 {d.DisplayName}");
         toggle.Click += (_, _) => controller.ToggleDevice(d.Id, toggle.IsChecked == true);
         Grid.SetColumn(toggle, 3); row.Children.Add(toggle);
         var card = Card(row);
-        ToolTipService.SetToolTip(card, $"{d.Name}\n{d.Source}\n{d.State}");
+        ToolTipService.SetToolTip(card, $"{d.DisplayName}\n{d.Source}\n{d.State}");
         return card;
     }
 
@@ -431,13 +443,29 @@ internal sealed class FlyoutWindow : Window
         AutomationProperties.SetName(interval, "后台刷新间隔");
         if (interval.SelectedIndex < 0) interval.SelectedIndex = 2;
         interval.SelectionChanged += (_, _) => { if (!updating && interval.SelectedIndex >= 0) { controller.Preferences.RefreshSeconds = new[] { 15, 30, 60, 300 }[interval.SelectedIndex]; controller.Save(); } };
+        var thresholds = Preferences.LowBatteryThresholds;
+        var threshold = new ComboBox { Width = 108, MinWidth = 0, FontSize = 12, ItemsSource = thresholds.Select(value => $"{value}%").ToArray(),
+            SelectedIndex = Array.IndexOf(thresholds, controller.Preferences.LowBatteryThreshold) };
+        AutomationProperties.SetName(threshold, "低电量阈值");
+        threshold.SelectionChanged += (_, _) =>
+        {
+            if (!updating && threshold.SelectedIndex >= 0) controller.SetLowBatteryThreshold(thresholds[threshold.SelectedIndex]);
+        };
         body.Children.Add(SectionLabel("常规"));
+        var notificationStatus = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
         body.Children.Add(SettingsGroup(
-            ToggleSetting("\uE7E7", "低电量提醒", "电量不高于 20% 时提醒", controller.Preferences.LowBatteryAlerts,
-                value => { controller.Preferences.LowBatteryAlerts = value; controller.Save(); }),
+            ToggleSetting("\uE7E7", "低电量提醒", "使用 Windows 通知", controller.Preferences.LowBatteryAlerts,
+                controller.SetLowBatteryAlerts),
+            SettingsRow("\uEBA7", "低电量阈值", null, threshold),
+            SettingsLink("\uE91C", "测试通知", null, () =>
+            {
+                notificationStatus.Text = controller.TestBatteryNotification();
+                notificationStatus.Visibility = Visibility.Visible;
+            }),
             ToggleSetting("\uE7E8", "开机启动", null, TrayController.StartupEnabled(), controller.SetStartup),
             SettingsRow("\uE790", "外观", null, theme),
             SettingsRow("\uE72C", "后台刷新", null, interval)));
+        body.Children.Add(notificationStatus);
         body.Children.Add(SectionLabel("关于"));
         body.Children.Add(SettingsGroup(
             SettingsLink("\uE946", "支持设备", null, ShowSupport),
@@ -483,7 +511,6 @@ internal sealed class FlyoutWindow : Window
         if (devices.Count == 0)
         {
             body.Children.Add(new TextBlock { Text = "读取到可显示电量的设备后，会出现在这里。", FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 20, 0, 0) });
-            return;
         }
         var list = new ListView { CanDragItems = true, CanReorderItems = true, AllowDrop = true, SelectionMode = ListViewSelectionMode.None, HorizontalContentAlignment = HorizontalAlignment.Stretch };
         foreach (var d in devices)
@@ -496,17 +523,17 @@ internal sealed class FlyoutWindow : Window
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             row.Children.Add(new FontIcon { Glyph = "\uE700", FontSize = 14, Opacity = .5, VerticalAlignment = VerticalAlignment.Center });
             var name = new StackPanel { Spacing = 3, VerticalAlignment = VerticalAlignment.Center };
-            name.Children.Add(new TextBlock { Text = d.Name.Replace("迈从 · ", ""), FontSize = 13, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
+            name.Children.Add(DeviceDetailLink(d.Id, d.DisplayName, 13));
             name.Children.Add(new TextBlock { Text = $"{d.Level} · {(d.IsCached ? "上次读数" : d.Connected ? d.Transport : "当前未连接")}", FontSize = 11, Opacity = .6 });
             Grid.SetColumn(name, 1); row.Children.Add(name);
             var enabled = new ToggleSwitch { IsOn = !controller.Preferences.HiddenDevices.Contains(d.Id), OnContent = "", OffContent = "", MinWidth = 0, Width = 45, VerticalAlignment = VerticalAlignment.Center };
             enabled.Toggled += (_, _) => { if (!updating) controller.ToggleDevice(d.Id, enabled.IsOn); };
-            AutomationProperties.SetName(enabled, $"显示 {d.Name}");
+            AutomationProperties.SetName(enabled, $"显示 {d.DisplayName}");
             Grid.SetColumn(enabled, 2); row.Children.Add(enabled);
-            var up = IconButton("\uE70E", $"上移 {d.Name}", () => controller.MoveDevice(d.Id, -1));
+            var up = IconButton("\uE70E", $"上移 {d.DisplayName}", () => controller.MoveDevice(d.Id, -1));
             up.Width = 28; up.Height = 28; up.VerticalAlignment = VerticalAlignment.Center;
             Grid.SetColumn(up, 3); row.Children.Add(up);
-            var down = IconButton("\uE70D", $"下移 {d.Name}", () => controller.MoveDevice(d.Id, 1));
+            var down = IconButton("\uE70D", $"下移 {d.DisplayName}", () => controller.MoveDevice(d.Id, 1));
             down.Width = 28; down.Height = 28; down.VerticalAlignment = VerticalAlignment.Center;
             Grid.SetColumn(down, 4); row.Children.Add(down);
             list.Items.Add(new ListViewItem { Content = row, Tag = d.Id, HorizontalContentAlignment = HorizontalAlignment.Stretch });
@@ -516,7 +543,12 @@ internal sealed class FlyoutWindow : Window
             if (e.DropResult != Windows.ApplicationModel.DataTransfer.DataPackageOperation.None)
                 controller.SetOrder(list.Items.Cast<ListViewItem>().Select(item => (string)item.Tag));
         };
-        body.Children.Add(list);
+        if (devices.Count > 0) body.Children.Add(list);
+        var historical = HistoricalDevices();
+        if (historical.Count == 0) return;
+        body.Children.Add(SectionLabel("有历史记录的设备"));
+        foreach (var device in historical)
+            body.Children.Add(Card(DeviceDetailLink(device.Id, JournalDisplayName(device), 13)));
     }
 
     private void BuildSupport()
@@ -715,6 +747,32 @@ internal sealed class FlyoutWindow : Window
             var scrollBounds = scroll.TransformToVisual(root).TransformBounds(new Windows.Foundation.Rect(0, 0, scroll.ActualWidth, scroll.ActualHeight));
             Check(root.ActualWidth - scrollBounds.Right >= 6 && root.ActualWidth - scrollBounds.Right <= 10,
                 "Scrollbar stays near the outer edge instead of consuming card width");
+            var threshold = Descendants(root).OfType<ComboBox>().Single(c => AutomationProperties.GetName(c) == "低电量阈值");
+            int initialThreshold = threshold.SelectedIndex;
+            threshold.SelectedIndex = 6;
+            Check(controller.Preferences.LowBatteryThreshold == 40 && Preferences.Load().LowBatteryThreshold == 40,
+                "The settings threshold is applied and saved");
+            threshold.SelectedIndex = initialThreshold;
+            ShowDeviceManagement();
+            var originalWidth = AppWindow.Size.Width;
+            var originalHeight = AppWindow.Size.Height;
+            AppWindow.Resize(new Windows.Graphics.SizeInt32((int)Math.Ceiling(340 * NativeWindow.Scale(hwnd)), originalHeight));
+            const string testDevice = "preview-mouse";
+            Navigate(DevicePagePrefix + testDevice);
+            await Task.Delay(200);
+            var aliasEditor = Descendants(root).OfType<TextBox>().Single();
+            aliasEditor.Text = "正在编辑";
+            UpdateView();
+            Check(Descendants(root).Contains(aliasEditor) && aliasEditor.Text == "正在编辑", "Background refresh preserves the alias draft");
+            Check(Descendants(root).OfType<Grid>().Any(g => AutomationProperties.GetName(g) == "最近 7 天电量趋势图")
+                && deviceDetailStatus!.Text.Contains("原始名称"), "Device details include the trend and original model at minimum width");
+            string? previousAlias = controller.Preferences.DeviceAliases.GetValueOrDefault(testDevice);
+            Check(controller.SetDeviceAlias(testDevice, "测试鼠标") && deviceDetailName!.Text == "测试鼠标"
+                && Preferences.Load().DeviceAliases.GetValueOrDefault(testDevice) == "测试鼠标", "Device alias persists and updates the selected device");
+            Check(controller.SetDeviceAlias(testDevice, previousAlias) && deviceDetailName!.Text != "测试鼠标", "Reset restores the original display name");
+            GoBack();
+            Check(page == "manage", "Back from device details returns to device management");
+            AppWindow.Resize(new Windows.Graphics.SizeInt32(originalWidth, originalHeight));
         }
         finally { controller.Preferences.RingIcons = original; controller.Save(); }
         File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "ui-self-test.json"), System.Text.Json.JsonSerializer.Serialize(new { Passed = failures.Count == 0, Checks = count, Failures = failures }));
