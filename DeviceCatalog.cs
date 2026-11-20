@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace BatteryDisplay;
 
 internal sealed record DeviceModel(ushort Vendor, ushort Product, string Name, string Protocol, int Parameter = 0,
-    int Interface = -1, int Report = 0, int ReportSize = 65, int Offset = 4, int Scale = 1, int ChargeOffset = 9, string Marker = "");
+    int Interface = -1, int Report = 0, int ReportSize = 65, int Offset = 4, int Scale = 1, int ChargeOffset = 9, string Marker = "", string? Transport = null);
 internal static class DeviceCatalog
 {
     public static readonly List<DeviceModel> Models = Load();

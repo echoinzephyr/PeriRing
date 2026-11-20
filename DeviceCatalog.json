@@ -1,5 +1,54 @@
 [
   {
+    "Vendor": 1133,
+    "Product": 49288,
+    "Name": "Logitech G PRO Wireless",
+    "Protocol": "logitech",
+    "Transport": "USB"
+  },
+  {
+    "Vendor": 1133,
+    "Product": 49300,
+    "Name": "Logitech G PRO X SUPERLIGHT",
+    "Protocol": "logitech",
+    "Transport": "USB"
+  },
+  {
+    "Vendor": 1133,
+    "Product": 49307,
+    "Name": "Logitech G PRO X SUPERLIGHT 2",
+    "Protocol": "logitech",
+    "Transport": "USB"
+  },
+  {
+    "Vendor": 1133,
+    "Product": 49312,
+    "Name": "Logitech G PRO X SUPERLIGHT 2 DEX",
+    "Protocol": "logitech",
+    "Transport": "USB"
+  },
+  {
+    "Vendor": 1133,
+    "Product": 49293,
+    "Name": "Logitech G502 LIGHTSPEED",
+    "Protocol": "logitech",
+    "Transport": "USB"
+  },
+  {
+    "Vendor": 1133,
+    "Product": 49304,
+    "Name": "Logitech G502 X LIGHTSPEED",
+    "Protocol": "logitech",
+    "Transport": "USB"
+  },
+  {
+    "Vendor": 1133,
+    "Product": 49301,
+    "Name": "Logitech G502 X PLUS",
+    "Protocol": "logitech",
+    "Transport": "USB"
+  },
+  {
     "Vendor": 5426,
     "Product": 656,
     "Name": "Razer DeathStalker V2 Pro",
@@ -186,35 +235,40 @@
     "Product": 128,
     "Name": "Razer Pro Click",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 122,
     "Name": "Razer Viper Ultimate",
     "Protocol": "razer",
-    "Parameter": 255
+    "Parameter": 255,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 123,
     "Name": "Razer Viper Ultimate",
     "Protocol": "razer",
-    "Parameter": 255
+    "Parameter": 255,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 124,
     "Name": "Razer DeathAdder V2 Pro",
     "Protocol": "razer",
-    "Parameter": 63
+    "Parameter": 63,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 125,
     "Name": "Razer DeathAdder V2 Pro",
     "Protocol": "razer",
-    "Parameter": 63
+    "Parameter": 63,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
@@ -228,42 +282,48 @@
     "Product": 134,
     "Name": "Razer Basilisk Ultimate",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 136,
     "Name": "Razer Basilisk Ultimate",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 143,
     "Name": "Razer Naga Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 144,
     "Name": "Razer Naga Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 148,
     "Name": "Razer Orochi V2",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 154,
     "Name": "Razer Pro Click Mini",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
@@ -277,98 +337,112 @@
     "Product": 158,
     "Name": "Razer Viper Mini SE",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 159,
     "Name": "Razer Viper Mini SE",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 165,
     "Name": "Razer Viper V2 Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 166,
     "Name": "Razer Viper V2 Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 167,
     "Name": "Razer Naga V2 Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 168,
     "Name": "Razer Naga V2 Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 170,
     "Name": "Razer Basilisk V3 Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 171,
     "Name": "Razer Basilisk V3 Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 175,
     "Name": "Razer Cobra Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 176,
     "Name": "Razer Cobra Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 179,
     "Name": "Razer HyperPolling Dongle",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 180,
     "Name": "Razer Naga V2 HyperSpeed",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 182,
     "Name": "Razer DeathAdder V3 Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 183,
     "Name": "Razer DeathAdder V3 Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
@@ -389,154 +463,176 @@
     "Product": 190,
     "Name": "Razer DeathAdder V4 Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 191,
     "Name": "Razer DeathAdder V4 Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 192,
     "Name": "Razer Viper V3 Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 193,
     "Name": "Razer Viper V3 Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 222,
     "Name": "Razer Viper V3 Pro SE",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 223,
     "Name": "Razer Viper V3 Pro SE",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 229,
     "Name": "Razer Viper V4 Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 230,
     "Name": "Razer Viper V4 Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 194,
     "Name": "Razer DeathAdder V3 Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 195,
     "Name": "Razer DeathAdder V3 Pro",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 196,
     "Name": "Razer DeathAdder V3 HyperSpeed",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 197,
     "Name": "Razer DeathAdder V3 HyperSpeed",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 199,
     "Name": "Razer Pro Click V2 Vertical Edition",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 200,
     "Name": "Razer Pro Click V2 Vertical Edition",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 204,
     "Name": "Razer Basilisk V3 Pro 35K",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 205,
     "Name": "Razer Basilisk V3 Pro 35K",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 208,
     "Name": "Razer Pro Click V2",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 209,
     "Name": "Razer Pro Click V2",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 211,
     "Name": "Razer Basilisk Mobile",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 212,
     "Name": "Razer Basilisk Mobile",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
     "Product": 214,
     "Name": "Razer Basilisk V3 Pro 35K Phantom Green",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "USB"
   },
   {
     "Vendor": 5426,
     "Product": 215,
     "Name": "Razer Basilisk V3 Pro 35K Phantom Green",
     "Protocol": "razer",
-    "Parameter": 31
+    "Parameter": 31,
+    "Transport": "2.4G"
   },
   {
     "Vendor": 5426,
@@ -563,13 +659,15 @@
     "Vendor": 13652,
     "Product": 62967,
     "Name": "Scyrox 8K Dongle",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "2.4G"
   },
   {
     "Vendor": 13652,
     "Product": 62966,
     "Name": "Scyrox (wired)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "USB"
   },
   {
     "Vendor": 13652,
@@ -581,79 +679,92 @@
     "Vendor": 13652,
     "Product": 62942,
     "Name": "Cougar Revenger Pro 4K (wired)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "USB"
   },
   {
     "Vendor": 13652,
     "Product": 62940,
     "Name": "Cougar Revenger Pro (2.4 GHz)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "2.4G"
   },
   {
     "Vendor": 13652,
     "Product": 62728,
     "Name": "Pulsar X2 V2 Mini (wireless)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "2.4G"
   },
   {
     "Vendor": 13652,
     "Product": 62727,
     "Name": "Pulsar X2 V2 Mini (wired)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "USB"
   },
   {
     "Vendor": 13652,
     "Product": 62863,
     "Name": "ATK VXE R1 SE+ (wired)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "USB"
   },
   {
     "Vendor": 13652,
     "Product": 62858,
     "Name": "VXE R1 Pro / R1 Pro Max (2.4 GHz)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "2.4G"
   },
   {
     "Vendor": 13652,
     "Product": 62860,
     "Name": "VXE R1 Pro Max (wired)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "USB"
   },
   {
     "Vendor": 13652,
     "Product": 62725,
     "Name": "VGN Dragonfly 4K (receiver)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "2.4G"
   },
   {
     "Vendor": 13652,
     "Product": 62726,
     "Name": "VGN Dragonfly 4K (wired)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "USB"
   },
   {
     "Vendor": 13652,
     "Product": 62933,
     "Name": "Redragon M991 / K1NG Max (2.4 GHz)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "2.4G"
   },
   {
     "Vendor": 13652,
     "Product": 62814,
     "Name": "Redragon M991 (wired)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "USB"
   },
   {
     "Vendor": 13652,
     "Product": 64009,
     "Name": "Compx 2.4 GHz keyboard",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "2.4G"
   },
   {
     "Vendor": 13652,
     "Product": 62755,
     "Name": "Teevolution Terra Pro (2.4 GHz)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "2.4G"
   },
   {
     "Vendor": 6940,
@@ -665,73 +776,85 @@
     "Vendor": 14139,
     "Product": 4534,
     "Name": "ATK A9 Ultimate (wired)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "USB"
   },
   {
     "Vendor": 14139,
     "Product": 4569,
     "Name": "ATK A9 Ultimate (2.4 GHz dongle)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "2.4G"
   },
   {
     "Vendor": 14139,
     "Product": 4297,
     "Name": "ATK A9 SE (2.4 GHz)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "2.4G"
   },
   {
     "Vendor": 14139,
     "Product": 4229,
     "Name": "ATK VXE R1 SE+ (2.4 GHz)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "2.4G"
   },
   {
     "Vendor": 14139,
     "Product": 4122,
     "Name": "ATK X1 Pro (2.4 GHz)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "2.4G"
   },
   {
     "Vendor": 14139,
     "Product": 4123,
     "Name": "ATK Fire X 8K (2.4 GHz dongle)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "2.4G"
   },
   {
     "Vendor": 14192,
     "Product": 768,
     "Name": "Hitscan Hyperlight (8K receiver)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "2.4G"
   },
   {
     "Vendor": 14192,
     "Product": 512,
     "Name": "Hitscan Hyperlight (2.4 GHz)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "2.4G"
   },
   {
     "Vendor": 14192,
     "Product": 256,
     "Name": "Hitscan Hyperlight (wired)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "USB"
   },
   {
     "Vendor": 14096,
     "Product": 21510,
     "Name": "Pulsar X2 CrazyLight Mini (2.4 GHz)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "2.4G"
   },
   {
     "Vendor": 14096,
     "Product": 13332,
     "Name": "Pulsar X2 CrazyLight Mini (wired)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "USB"
   },
   {
     "Vendor": 13284,
     "Product": 14420,
     "Name": "G-Wolves mouse (8K receiver)",
-    "Protocol": "compx"
+    "Protocol": "compx",
+    "Transport": "2.4G"
   },
   {
     "Vendor": 4152,

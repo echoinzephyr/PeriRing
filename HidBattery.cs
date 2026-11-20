@@ -150,15 +150,18 @@ internal static class HidBattery
         return result;
     }
 
-    internal static Peripheral? ParseStatus(byte[] response, string product, string path)
+    internal static Peripheral? ParseStatus(byte[] response, string product, string path, ushort? wiredProduct = null, byte reportId = 0x11)
     {
-        if (response.Length < 13 || response[0] != 0x11 || response[1] != 0xF9) return null;
+        if (response.Length < 13 || response[0] != reportId || response[1] != 0xF9) return null;
         byte[] payload = response.Skip(2).Select(b => (byte)(b ^ 0xFF)).ToArray();
         int vendor = payload[0] | payload[1] << 8;
         int model = payload[2] | payload[3] << 8;
-        if (vendor is not (0x5253 or 0x3837) || model == 0 || (payload[8] & 0x08) == 0 || payload[9] > 100) return null;
+        if (vendor is not (0x5253 or 0x3837) || model == 0 || payload[9] > 100) return null;
+        // Direct devices identify their own USB model while the wireless link bit can be clear.
+        bool wired = wiredProduct.HasValue;
+        if (wired ? model != wiredProduct : (payload[8] & 0x08) == 0) return null;
         string name = model switch { 0x31 => "迈从 M7 Ultra", 0xB0 => "迈从 L7 Pro", _ => $"迈从 · {product}" };
-        return new("hid:" + path.ToUpperInvariant(), name, true, payload[9], "迈从接收器", "2.4G", payload[10] == 1,
+        return new("hid:" + path.ToUpperInvariant(), name, true, payload[9], wired ? "迈从 USB 有线" : "迈从接收器", wired ? "USB" : "2.4G", payload[10] == 1,
             VendorDisplay: VendorBatteryDisplay(payload[9]));
     }
     // Official M HUB display bins: 0..14 -> 10, 15..24 -> 20, ... 75..84 -> 80, 95..100 -> 100.

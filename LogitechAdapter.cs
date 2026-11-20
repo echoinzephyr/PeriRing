@@ -5,7 +5,7 @@ namespace BatteryDisplay;
 internal sealed class LogitechAdapter : IHidBatteryAdapter
 {
     public string Name => "罗技";
-    public string Models => "HID++ 1.0 / 2.0：Unifying、Bolt、Lightspeed、Nano 接收器；部分 G 系列耳机";
+    public string Models => "G PRO Wireless、PRO X SUPERLIGHT / 2 / 2 DEX、G502 LIGHTSPEED 系列；Unifying、Bolt、Lightspeed、Nano 及部分 G 系列耳机";
     public bool Matches(HidDescriptor d) => d.Vendor == 0x046D && d.Caps.OutputLength >= 20 && d.Caps.InputLength >= 20 &&
         ((d.Caps.UsagePage == 0xFF00 && d.Caps.Usage == 2) || (d.Caps.UsagePage == 0xFF43 && d.Caps.Usage == 0x0202));
     private static readonly HashSet<ushort> Receivers = [0xC548, 0xC52B, 0xC532, 0xC52F, 0xC518, 0xC51A, 0xC51B, 0xC521,
@@ -20,8 +20,7 @@ internal sealed class LogitechAdapter : IHidBatteryAdapter
             var shortDescriptor = all.FirstOrDefault(a => a.Group == d.Group && a.Caps.UsagePage == 0xFF00 && a.Caps.Usage == 1);
             if (shortDescriptor is not null) { try { shortConnection = new(shortDescriptor); } catch (IOException) { } }
             var channel = new Channel(connection, shortConnection);
-            bool receiver = Receivers.Contains(d.Product) || d.Name.Contains("receiver", StringComparison.OrdinalIgnoreCase);
-            byte[] slots = receiver ? [1, 2, 3, 4, 5, 6] : [255];
+            var slots = PollSlots(d);
             var readings = new List<Peripheral>();
             foreach (byte slot in slots)
             {
@@ -55,6 +54,11 @@ internal sealed class LogitechAdapter : IHidBatteryAdapter
                     if (reading is not null) break;
                 }
                 if (reading is null) continue;
+                if (slot == 255 && DeviceCatalog.Find(d, "logitech") is not null)
+                {
+                    readings.Add(reading);
+                    continue;
+                }
                 var nameRoot = await channel.Request(slot, 0, 0, [0, 5, 0], token);
                 if (nameRoot.Data is { Length: > 0 } && nameRoot.Data[0] != 0)
                 {
@@ -69,7 +73,11 @@ internal sealed class LogitechAdapter : IHidBatteryAdapter
                             if (fragment.Data is not { Length: > 0 }) break;
                             nameBytes.AddRange(fragment.Data.Take(Math.Min(length - nameBytes.Count, fragment.Data.Length)));
                         }
-                        if (nameBytes.Count == length && length > 0) reading = reading with { Name = Encoding.UTF8.GetString(nameBytes.ToArray()).TrimEnd('\0') };
+                        if (nameBytes.Count == length && length > 0)
+                        {
+                            var reportedName = Encoding.UTF8.GetString(nameBytes.ToArray()).TrimEnd('\0').Trim();
+                            if (reportedName.Length > 0) reading = reading with { Name = DisplayName(reportedName) };
+                        }
                     }
                 }
                 readings.Add(reading);
@@ -79,19 +87,36 @@ internal sealed class LogitechAdapter : IHidBatteryAdapter
         finally { shortConnection?.Dispose(); }
     }
 
+    internal static byte[] PollSlots(HidDescriptor d) =>
+        Receivers.Contains(d.Product) || d.Name.Contains("receiver", StringComparison.OrdinalIgnoreCase) ? [1, 2, 3, 4, 5, 6] : [255];
+
+    internal static string DisplayName(string reportedName) => reportedName.ToUpperInvariant() switch
+    {
+        "G PRO WIRELESS GAMING MOUSE" => "Logitech G PRO Wireless",
+        "PRO X WIRELESS" => "Logitech G PRO X SUPERLIGHT",
+        "PRO X 2" => "Logitech G PRO X SUPERLIGHT 2",
+        "PRO X 2 DEX" => "Logitech G PRO X SUPERLIGHT 2 DEX",
+        "G502 GAMING MOUSE" => "Logitech G502 LIGHTSPEED",
+        "G502 X LS" => "Logitech G502 X LIGHTSPEED",
+        _ => reportedName
+    };
+
     private static string GaugeText(int gauge) => gauge <= 5 ? "极低（档位）" : gauge <= 20 ? "低（档位）" : gauge <= 50 ? "中（档位）" : "高（档位）";
     internal static Peripheral? Parse(ushort feature, byte[] p, HidDescriptor d, byte slot)
     {
         if (p.Length < 3) return null;
         string id = d.Id + ":" + slot;
+        var model = slot == 255 ? DeviceCatalog.Find(d, "logitech") : null;
+        string name = model?.Name ?? d.Name;
+        string transport = slot == 255 ? model?.Transport ?? "USB / 2.4G" : "2.4G";
         bool charging = p[2] is >= 1 and <= 4;
         if (feature is 0x1004 or 0x1000)
         {
-            if (p[0] is > 0 and <= 100) return new(id, d.Name, true, p[0], "罗技 HID++", "USB / 2.4G", charging);
+            if (p[0] is > 0 and <= 100) return new(id, name, true, p[0], "罗技 HID++", transport, charging);
             if (feature == 0x1004 && p[0] == 0)
             {
                 int? gauge = p[1] switch { 8 => 90, 4 => 50, 2 => 20, 1 => 5, _ => null };
-                if (gauge.HasValue) return new(id, d.Name, true, null, "罗技 HID++", "USB / 2.4G", charging, gauge, GaugeText(gauge.Value), "已连接 · 设备仅上报档位");
+                if (gauge.HasValue) return new(id, name, true, null, "罗技 HID++", transport, charging, gauge, GaugeText(gauge.Value), "已连接 · 设备仅上报档位");
             }
             return null;
         }
@@ -100,7 +125,7 @@ internal sealed class LogitechAdapter : IHidBatteryAdapter
         if (mv is < 2500 or > 5000 || (feature == 0x1F20 && (p[2] & 1) == 0)) return null;
         // Voltage-only devices are explicitly marked as estimates.
         int gaugeValue = VoltageEstimate(mv);
-        return new(id, d.Name, true, null, "罗技 HID++ 电压", "USB / 2.4G", feature == 0x1001 ? (p[2] & 0x80) != 0 : (p[2] & 2) != 0,
+        return new(id, name, true, null, "罗技 HID++ 电压", transport, feature == 0x1001 ? (p[2] & 0x80) != 0 : (p[2] & 2) != 0,
             gaugeValue, $"约 {gaugeValue}%", "已连接 · 按电压估算");
     }
     private static int VoltageEstimate(int mv)

@@ -28,7 +28,7 @@ internal sealed class RazerAdapter : IHidBatteryAdapter
         int? raw = await Query(0x80);
         if (!raw.HasValue) return [];
         int? charge = await Query(0x84);
-        return [new(d.Id, model.Name, true, (raw.Value * 100 + 127) / 255, "雷蛇电量服务", "USB / 2.4G", charge is > 0)];
+        return [new(d.Id, model.Name, true, (raw.Value * 100 + 127) / 255, "雷蛇电量服务", model.Transport ?? "USB / 2.4G", charge is > 0)];
     }
     internal static byte[] BuildRequest(byte transaction, byte command)
     {

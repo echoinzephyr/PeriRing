@@ -13,6 +13,35 @@ internal static class ProtocolTests
         }
         HidDescriptor Descriptor(ushort vid, ushort pid, ushort usagePage = 0xFF02, ushort usage = 2) =>
             new("test", vid, pid, "test", new() { UsagePage = usagePage, Usage = usage, InputLength = 65, OutputLength = 65, FeatureLength = 91 });
+        var ax5Wired = Descriptor(0x5253, 0x00A1, 0xFF01, 1) with { Name = "MCHOSE AX5 V2" };
+        var mchose = new MchoseAdapter();
+        Check(mchose.Matches(ax5Wired) && !mchose.Matches(Descriptor(0x5253, 0x00A1, 0xFF0B, 0x104))
+            && !mchose.Matches(Descriptor(0x5253, 0x00A1, 0xFF01, 2)), "AX5 V2 wired option only queries its designated vendor collection");
+        byte[] MchoseStatus(ushort vendor, ushort model, byte flags, byte level, byte charging)
+        {
+            byte[] data = [(byte)vendor, (byte)(vendor >> 8), (byte)model, (byte)(model >> 8), 0, 0, 0, 0, flags, level, charging];
+            return [0x11, 0xF9, .. data.Select(b => (byte)(b ^ 0xFF))];
+        }
+        var ax5Status = MchoseStatus(0x5253, 0x00A1, 0, 82, 1);
+        var mchoseReceiver = ax5Wired with { Product = 0x1020 };
+        Check(MchoseAdapter.Parse(ax5Status, ax5Wired) is { Connected: true, Transport: "USB", Battery: 82, VendorDisplay: 80, Charging: true },
+            "AX5 V2 wired reading is valid with the wireless link bit clear");
+        Check(MchoseAdapter.Parse(ax5Status, mchoseReceiver) is null, "Offline MCHOSE receivers still require the active connection flag");
+        Check(MchoseAdapter.Parse(MchoseStatus(0x5253, 0x00A1, 8, 82, 0), mchoseReceiver) is { Transport: "2.4G", Battery: 82, Charging: false },
+            "AX5 V2 wireless reading is preserved");
+        Check(MchoseAdapter.Parse(MchoseStatus(0x5253, 0x0031, 0, 82, 1), ax5Wired) is null
+            && MchoseAdapter.Parse(MchoseStatus(0x5253, 0x00A1, 0, 101, 1), ax5Wired) is null,
+            "AX5 V2 wired mode rejects a different model or invalid percentage");
+        foreach (var (vendor, model) in new (ushort, ushort)[] { (0x5253, 0x0031), (0x5253, 0x00B0), (0x3837, 0x4018), (0x3837, 0x4021) })
+        {
+            var cable = Descriptor(vendor, model, 0xFF01, 1);
+            Check(mchose.Matches(cable) && MchoseAdapter.Parse(MchoseStatus(vendor, model, 0, 91, 1), cable)
+                is { Transport: "USB", Battery: 91, Charging: true }, $"MCHOSE {vendor:X4}:{model:X4} direct status");
+        }
+        Check(!mchose.Matches(Descriptor(0x3837, 0x418C, 0xFF01, 1)), "Unrelated MCHOSE models require their own protocol");
+        ax5Status[0] = 0x12;
+        Check(MchoseAdapter.Parse(ax5Status, ax5Wired, 0x12) is { Transport: "USB", Battery: 82 }
+            && MchoseAdapter.Parse(ax5Status, ax5Wired) is null, "MCHOSE direct long report is only accepted when requested");
         var sonix = new HidDescriptor("test&mi_03", 0x05AC, 0x024F, "VK 75 Wireless Receiver",
             new() { UsagePage = 0xFF60, Usage = 0x61, InputLength = 33, OutputLength = 33 });
         var sonixAdapter = new SonixKeyboardAdapter();
@@ -44,6 +73,43 @@ internal static class ProtocolTests
         power[16] ^= 1; power[1] = 0x0A;
         Check(CompxAdapter.Parse(power, compx) is null, "CompX ignores unsolicited events");
         Check(CompxAdapter.Request().SequenceEqual(new byte[] { 8, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x49 }), "CompX read-only request frame");
+        byte[] pulsarCable = [8, 4, 0, 0, 0, 2, 25, 1, 0x0E, 0x52, 0, 0, 0, 0, 0, 0, 0xCD];
+        var compxAdapter = new CompxAdapter();
+        var pulsar = Descriptor(0x3710, 0x3414);
+        Check(compxAdapter.Matches(pulsar) && CompxAdapter.Parse(pulsarCable, pulsar) is { Transport: "USB", Battery: 25, Charging: true },
+            "Pulsar X2 CrazyLight Mini captured cable reading shows USB");
+        Check(CompxAdapter.Parse(pulsarCable, compx with { Product = 0xF58C }) is { Transport: "USB" }
+            && CompxAdapter.Parse(pulsarCable, compx) is { Transport: "2.4G" }, "VXE R1 Pro Max distinguishes the cable and receiver");
+
+        var atkWired = Descriptor(0x320F, 0x5055, 0xFF1C, 0x92) with { Name = "ATK V75X" };
+        var atk = new AtkKeyboardAdapter();
+        Check(atk.Matches(atkWired) && !atk.Matches(atkWired with { Name = "Other Evision keyboard" })
+            && !atk.Matches(atkWired with { Product = 0x5088 }), "ATK polling is limited to the named V75X cable collection");
+        var atkRequest = AtkKeyboardAdapter.BatteryRequest(0x010A);
+        Check(atkRequest.Length == 32 && atkRequest.Take(4).SequenceEqual(new byte[] { 4, 10, 1, 0x1A }) && atkRequest.Skip(4).All(b => b == 0),
+            "ATK request contains only the battery command and request ID");
+        byte[] atkReply = [4, 10, 1, 0x1A, 0, 0, 0, 0, 91, 1];
+        Check(AtkKeyboardAdapter.Parse(atkReply, atkWired, 0x010A) is { Transport: "USB", Battery: 91, Charging: true }, "ATK V75X cable battery and charging");
+        Check(AtkKeyboardAdapter.Parse(atkReply, atkWired, 0x010B) is null, "ATK ignores a reply for an older request");
+        atkReply[9] = 3;
+        Check(AtkKeyboardAdapter.Parse(atkReply, atkWired, 0x010A) is null, "ATK rejects an unknown charging status");
+
+        var nzxtWired = Descriptor(0x1E71, 0x2129, 0xFFCA, 1);
+        var nzxtWireless = nzxtWired with { Product = 0x2101 };
+        var nzxt = new NzxtAdapter();
+        Check(nzxt.Matches(nzxtWired) && nzxt.Matches(nzxtWireless) && !nzxt.Matches(nzxtWired with { Product = 0x2131 }),
+            "NZXT only queries the Lift Elite Wireless cable and receiver");
+        var nzxtRequest = NzxtAdapter.BatteryRequest();
+        Check(nzxtRequest.Length == 64 && nzxtRequest.Take(5).SequenceEqual(new byte[] { 0x4E, 2, 0x81, 0, 0xB0 }), "NZXT telemetry read request");
+        var nzxtReply = new byte[64];
+        nzxtReply[0] = 0x4E; nzxtReply[1] = 2; nzxtReply[2] = 0x97;
+        nzxtReply[17] = 84; nzxtReply[22] = 1;
+        Check(NzxtAdapter.Parse(nzxtReply, nzxtWired) is { Transport: "USB", Battery: 84, Charging: true }, "NZXT cable percentage and charging flag");
+        nzxtReply[17] = 77; nzxtReply[22] = 0;
+        Check(NzxtAdapter.Parse(nzxtReply, nzxtWireless) is { Transport: "2.4G", Battery: 77, Charging: false }, "NZXT receiver percentage and charging flag");
+        nzxtReply[18] = 1;
+        Check(NzxtAdapter.Parse(nzxtReply, nzxtWireless) is null && NzxtAdapter.Parse([0x4E, 0xE5, 0], nzxtWired) is null,
+            "NZXT ignores acknowledgements and out-of-range 16-bit levels");
 
         byte[] sinowealth = [0, 0xA1, 0, 2, 2, 0, 0x83, 1, 75];
         Check(SinowealthAdapter.Parse(sinowealth, Descriptor(0x373E, 0x001E)) is { Battery: 75, Charging: true }, "Sinowealth matching response");
@@ -57,6 +123,9 @@ internal static class ProtocolTests
         var razerReply = new byte[91];
         razerReply[1] = 2; razerReply[2] = 0x1F; razerReply[6] = 2; razerReply[7] = 7; razerReply[8] = 0x80; razerReply[10] = 128; razerReply[89] = 5;
         Check(RazerAdapter.ParseReply(razerReply, 0x80) == 128, "Razer matching power reply");
+        Check(DeviceCatalog.Find(Descriptor(0x1532, 0x00E5), "razer") is { Transport: "USB", Parameter: 0x1F }
+            && DeviceCatalog.Find(Descriptor(0x1532, 0x00E6), "razer") is { Transport: "2.4G", Parameter: 0x1F },
+            "Razer Viper V4 Pro cable and receiver keep their reported transport and transaction ID");
         Check(RazerAdapter.ParseReply(razerReply, 0x84) is null, "Razer ignores another command's reply");
         razerReply[89] ^= 1;
         Check(RazerAdapter.ParseReply(razerReply, 0x80) is null, "Razer rejects invalid CRC");
@@ -69,6 +138,33 @@ internal static class ProtocolTests
         Check(LogitechAdapter.Parse(0x1F20, [0x0F, 0x00, 0], logi, 1) is null, "HID++ disconnected headset is not live");
         var voltage = LogitechAdapter.Parse(0x1001, [0x0F, 0x00, 0], logi, 1);
         Check(voltage is { Battery: null, Gauge: not null } && voltage.State.Contains("估算"), "HID++ voltage estimate is explicit");
+        var gpw = Descriptor(0x046D, 0xC088, 0xFF00, 2);
+        var logitech = new LogitechAdapter();
+        Check(logitech.Matches(gpw) && LogitechAdapter.PollSlots(gpw).SequenceEqual(new byte[] { 255 }),
+            "G PRO Wireless uses the direct HID++ address on the cable");
+        Check(LogitechAdapter.Parse(0x1001, [0x0F, 0x13, 0x80], gpw, 255)
+            is { Name: "Logitech G PRO Wireless", Battery: null, Gauge: not null, Transport: "USB", Charging: true } gpwEstimate
+            && gpwEstimate.Level.StartsWith("约 ", StringComparison.Ordinal),
+            "Wired G PRO Wireless voltage is an estimate, with USB and charging labels");
+        foreach (var (product, name) in new (ushort, string)[]
+        {
+            (0xC094, "Logitech G PRO X SUPERLIGHT"), (0xC09B, "Logitech G PRO X SUPERLIGHT 2"), (0xC0A0, "Logitech G PRO X SUPERLIGHT 2 DEX"),
+            (0xC08D, "Logitech G502 LIGHTSPEED"), (0xC098, "Logitech G502 X LIGHTSPEED"), (0xC095, "Logitech G502 X PLUS")
+        })
+        {
+            var cable = gpw with { Product = product };
+            Check(logitech.Matches(cable) && LogitechAdapter.Parse(0x1004, [62, 4, 1], cable, 255) is { Transport: "USB", Battery: 62, Charging: true } wired
+                && wired.Name == name, $"Logitech direct model and transport {product:X4}");
+        }
+        foreach (ushort product in new ushort[] { 0xC539, 0xC545, 0xC547, 0xC54D })
+        {
+            var receiver = gpw with { Product = product, Name = "罗技接收器" };
+            Check(logitech.Matches(receiver) && LogitechAdapter.PollSlots(receiver).SequenceEqual(new byte[] { 1, 2, 3, 4, 5, 6 })
+                && LogitechAdapter.Parse(0x1004, [0x61, 8, 0], receiver, 1) is { Name: "罗技接收器", Transport: "2.4G", Battery: 97 },
+                $"Logitech {product:X4} queries paired slots without guessing a model from the receiver");
+        }
+        Check(LogitechAdapter.DisplayName("PRO X 2") == "Logitech G PRO X SUPERLIGHT 2"
+            && LogitechAdapter.DisplayName("PRO X 2 LIGHTSPEED") == "PRO X 2 LIGHTSPEED", "GPX2 firmware name does not replace the similarly named headset");
 
         var sony = Descriptor(0x054C, 0x0CE6, 1, 5);
         var ds = new byte[64]; ds[0] = 1; ds[53] = 0x15;
