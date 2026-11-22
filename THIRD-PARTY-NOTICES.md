@@ -2,6 +2,32 @@ Protocol and device identity references
 
 This project uses independently written C# adapters with protocol layouts and device identity tables referenced from the following projects. The notices below are retained for the referenced/adapted material.
 
+OpenMHub MCHOSE V9 Turbo+ device identity, battery query framing, and status values:
+https://github.com/brayanspagnol/OpenMHub/blob/f77c000334ad9e34499d7acab315a0d9ee8789b7/app/renderer/drivers/headset.js
+
+MIT License
+
+Copyright (c) 2026 Brayan Spagnol
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
 Halo Battery: https://github.com/HeyOkay/HaloBattery
 Protocols and model tables: providers/ and docs/protocols.md
 

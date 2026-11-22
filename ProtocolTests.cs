@@ -212,6 +212,8 @@ internal static class ProtocolTests
         Check(first.Group == sibling.Group && first.Group != other.Group, "Collections merge while two identical receivers remain distinct");
         var report = Task.Run(() => BatteryService.ScanAsync(CancellationToken.None, [new TestProvider(false), new TestProvider(true)])).GetAwaiter().GetResult();
         Check(report.Devices.Count == 1 && report.Providers.Count(p => p.Warning is not null) == 1, "One provider failure does not remove another provider's readings");
+        count += MchoseHeadsetTests.Run(failures);
+        count += Task.Run(() => V9ReaderTests.RunAsync(failures)).GetAwaiter().GetResult();
         return count;
     }
 

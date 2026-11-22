@@ -6,6 +6,7 @@
 |---|---|---|
 | 标准蓝牙 | Windows 已上报电量的鼠标、键盘、耳机等；标准 BLE Battery Service | 本机系统读数已验证；BLE 直读待实测 |
 | 迈从 | AX5 V2、M7 / M7 Pro / M7 Ultra、L7 / L7 Pro / L7 Pro+ / L7 Ultra / L7 Ultra+、A7 / A7 Pro / A7 Ultra / A7 Ultra(RE)、A7 V2 Pro / Pro+ / Ultra / Ultra+ 的已登记有线接口及部分 Realtek 接收器 | AX5 V2 和 A7 Ultra(RE) 已在环电实测 2.4G，AX5 V2 有线已在环电实测。其余有线条目按公开协议接入，待环电实测 |
+| 迈从耳机 | V9 Turbo+ 的 2.4G 接收器 `3837:600A` | 已在 Test 1 验证正常连接下的电量读取及同时显示蓝牙外设。[验证记录](docs/MCHOSE-V9-TURBO-VALIDATION.md) |
 | 瓦尔基里 / SONiX 键盘 | VK75、VK99 / VK99 Pro 已登记接口；接收器必须同时匹配名称、接口和报告格式 | VK75 通过 2.4G 接收器正常显示电量，已获用户实测确认；USB 有线目前仅验证型号识别，VK99 / VK99 Pro 电量仍待实测 |
 | 罗技 | GPW（G PRO Wireless）、GPX（G PRO X SUPERLIGHT）、GPX 2 / 2 DEX、G502 LIGHTSPEED / X LIGHTSPEED / X PLUS 的已登记 USB 和 Lightspeed 接收器。也支持提供 HID++ 电池功能的 Unifying、Bolt、Nano 外设及部分 G 系列耳机 | GPW 一代的电压会标为估算，GPX 系列可读取设备上报的百分比。已有公开 HID++ 读数，待环电实机验证 |
 | 雷蛇 | 已登记的 Viper、DeathAdder、Basilisk、Naga、Cobra、Pro Click 鼠标及部分无线键盘；已核对的鼠标接口区分 USB 与 2.4G | Viper V4 Pro 有线与接收器有公开抓包，待环电实测。可用接口以设备目录为准 |

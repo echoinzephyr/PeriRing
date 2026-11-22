@@ -576,15 +576,20 @@ internal sealed partial class FlyoutWindow : Window
                     "未匹配私有协议；可导出诊断包用于适配分析"));
         }
         body.Children.Add(new InfoBar { IsOpen = true, IsClosable = false, Severity = InfoBarSeverity.Informational,
-            Message = "迈从 AX5 V2、A7 Ultra(RE) 已实测。其余适配仍需对应硬件验证。" });
+            Message = "迈从 AX5 V2、A7 Ultra(RE) 已实测，V9 Turbo+ 和 VK75 的 2.4G 电量已由用户验证。" });
         foreach (var provider in BatteryService.Providers.Where(p => p is not UsbProvider))
         {
             var state = controller.Providers.FirstOrDefault(p => p.Name == provider.Name);
             body.Children.Add(SupportCard(provider.Name, provider.Coverage, state?.Warning ?? (state is null ? "尚未读取" : $"识别到 {state.DeviceCount} 个设备")));
         }
         foreach (var adapter in UsbProvider.Adapters)
-            body.Children.Add(SupportCard(adapter.Name, adapter.Models, adapter is MchoseAdapter ? "AX5 V2、A7 Ultra(RE) 已实测"
-                : adapter is SonixKeyboardAdapter ? "VK75 2.4G 电量已由用户实测；其他型号待验证" : "已接入 · 硬件待实测"));
+            body.Children.Add(SupportCard(adapter.Name, adapter.Models, adapter switch
+            {
+                MchoseAdapter => "AX5 V2、A7 Ultra(RE) 已实测",
+                MchoseHeadsetAdapter => "V9 Turbo+ 2.4G 电量已由用户实测",
+                SonixKeyboardAdapter => "VK75 2.4G 电量已由用户实测；其他型号待验证",
+                _ => "已接入 · 硬件待实测"
+            }));
     }
     private Border SupportCard(string name, string coverage, string state)
     {

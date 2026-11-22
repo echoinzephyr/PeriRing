@@ -9,7 +9,13 @@ internal sealed record HidDescriptor(string Path, ushort Vendor, ushort Product,
     public string Group => Regex.Replace(Regex.Replace(Path, @"&col[0-9a-f]+", "", RegexOptions.IgnoreCase), @"&[0-9a-f]{4}(?=#\{)", "", RegexOptions.IgnoreCase).ToUpperInvariant();
 }
 
-internal sealed class HidConnection : IDisposable
+internal interface IHidBatterySession : IDisposable
+{
+    Task WriteAsync(byte[] report, CancellationToken token);
+    Task<byte[]?> ReadAsync(int timeoutMs, CancellationToken token);
+}
+
+internal sealed class HidConnection : IHidBatterySession
 {
     private readonly Microsoft.Win32.SafeHandles.SafeFileHandle handle;
     private FileStream? stream;
@@ -83,12 +89,12 @@ internal interface IHidBatteryAdapter
 internal sealed class UsbProvider : IBatteryProvider
 {
     internal static readonly IHidBatteryAdapter[] Adapters =
-    [new MchoseAdapter(), new SinowealthAdapter(), new CompxAdapter(), new LogitechAdapter(), new RazerAdapter(), new SonyAdapter(), new HeadsetAdapter(),
+    [new MchoseAdapter(), new MchoseHeadsetAdapter(), new SinowealthAdapter(), new CompxAdapter(), new LogitechAdapter(), new RazerAdapter(), new SonyAdapter(), new HeadsetAdapter(),
         new AsusAdapter(), new HyperXAdapter(), new KeychronAdapter(), new CorsairAdapter(), new SonixKeyboardAdapter(),
         new AtkKeyboardAdapter(), new NzxtAdapter()];
     public string Name => "USB / 2.4G 外设";
     public string Coverage => string.Join("、", Adapters.Select(a => a.Name));
-    public string Verification => "迈从 AX5 V2、A7 Ultra(RE) 已实测；VK75 2.4G 电量已获用户确认；其余待硬件实测";
+    public string Verification => "迈从 AX5 V2、A7 Ultra(RE) 已实测；V9 Turbo+ 和 VK75 的 2.4G 电量已获用户确认";
 
     public async Task<List<Peripheral>> ReadAsync(CancellationToken token)
     {

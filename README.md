@@ -144,6 +144,7 @@
 
 - **MCHOSE AX5 V2**：已实测 2.4G 电量读取。当前源码也支持 USB 有线电量和充电状态，实测原始 82% 按官方分档显示为 80%。
 - **MCHOSE A7 Ultra(RE)**：2.4G 接收器已返回有效电量；与 AX5 V2 同时连接时能分别读取。
+- **MCHOSE V9 Turbo+**：用户在 Test 1 中验证了 2.4G 接收器的电量读取，与蓝牙鼠标同时连接时可分别显示。[验证记录](docs/MCHOSE-V9-TURBO-VALIDATION.md)
 - **Valkyrie 75 / VK75**：用户已确认通过 2.4G 接收器正常显示电量；USB 有线型号识别已验证，有线连接尚未取得电量。
 - 本机 Windows 蓝牙电量读取；标准 BLE 直读和其他多品牌适配仍有待对应硬件验证。
 
@@ -241,7 +242,7 @@ cd PeriRing
 | `--capture-ui` | 读取真实设备，生成 WinUI 页面截图后退出 |
 | `--ui-preview --capture-ui` | 用示例设备生成界面截图，不将示例值用于真实设备读取 |
 
-当前源码包含 220 项核心检查和 30 项原生界面检查。检查覆盖电量采样、阈值和别名保存、页面返回、滚动恢复，以及刷新期间的动画播放。各设备的兼容性以真实硬件验证为准。
+当前源码包含 269 项核心检查和 30 项原生界面检查。检查覆盖电量采样、阈值和别名保存、页面返回、滚动恢复，以及刷新期间的动画播放。各设备的兼容性以真实硬件验证为准。
 
 ### 项目结构
 
@@ -265,7 +266,7 @@ cd PeriRing
 
 感谢参与设备适配、问题反馈和验证的贡献者：
 
-- [ACupOfMercury](https://github.com/ACupOfMercury)：反馈 MCHOSE V9 Turbo+ 2.4G 耳机兼容性问题，并提交独立电量适配、回归测试与验证文档。关联 [Issue #1](https://github.com/echoinzephyr/PeriRing/issues/1) 和 [PR #2](https://github.com/echoinzephyr/PeriRing/pull/2)；该适配目前仍待实机验证。
+- ACupOfMercury 反馈 MCHOSE V9 Turbo+ 2.4G 耳机兼容性问题，并提交电量适配、协议测试与验证文档。[贡献者](https://github.com/ACupOfMercury) · [Issue #1](https://github.com/echoinzephyr/PeriRing/issues/1) · [PR #2](https://github.com/echoinzephyr/PeriRing/pull/2)
 
 ## 隐私与许可证
 
