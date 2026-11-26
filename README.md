@@ -2,6 +2,13 @@
 
 <img src="Assets/periring.png" width="96" alt="环电 PeriRing 图标">
 
+[![Build](https://img.shields.io/github/actions/workflow/status/echoinzephyr/PeriRing/ci.yml?branch=main&logo=github&label=build)](https://github.com/echoinzephyr/PeriRing/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/echoinzephyr/PeriRing?label=release&color=248A71)](https://github.com/echoinzephyr/PeriRing/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/echoinzephyr/PeriRing/total?label=downloads&color=38A991)](https://github.com/echoinzephyr/PeriRing/releases)
+![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D6)
+![Tech](https://img.shields.io/badge/.NET%2010-WinUI%203-512BD4?logo=dotnet)
+[![License](https://img.shields.io/github/license/echoinzephyr/PeriRing?label=license&color=007EC6)](LICENSE)
+
 **用一圈，掌握外设电量。**
 
 环电是一款 Windows 托盘外设电量工具，使用 WinUI 3 与 Fluent 界面。把多个外设的电量汇总在一个分段圆环里，悬停看数值，点击展开设备，右键完成常用操作。

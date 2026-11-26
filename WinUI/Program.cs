@@ -62,7 +62,10 @@ internal static class Program
         {
             DebugService.Log("app", "fatal", new { Type = ex.GetType().Name, ex.HResult });
             File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "startup-error.txt"), ex.ToString());
-            NativeWindow.Error(AppBrand.Name + "启动失败", ex.Message);
+            bool headless = args.Contains("--self-test") || args.Contains("--check-update") || args.Contains("--diagnose")
+                || args.Contains("--export-diagnostics") || args.Contains("--ui-self-test") || args.Contains("--capture-ui")
+                || string.Equals(Environment.GetEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase);
+            if (!headless) NativeWindow.Error(AppBrand.Name + "启动失败", ex.Message);
             Environment.ExitCode = 1;
         }
     }

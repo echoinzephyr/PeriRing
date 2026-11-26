@@ -10,6 +10,7 @@ on:
 jobs:
   build-and-test:
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -19,19 +20,29 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Build WinUI release
+      - name: Build self-test runner (WinAppSDK self-contained)
         shell: pwsh
-        run: ./build.ps1 -PublishDirectory ./.dotnet/ci-publish
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installation = & $vswhere -latest -property installationPath
+          $msbuild = Join-Path $installation 'MSBuild\Current\Bin\amd64\MSBuild.exe'
+          $out = [IO.Path]::GetFullPath('./.dotnet/ci-test')
+          & $msbuild BatteryDisplay.csproj /restore /t:Publish /p:Configuration=Release /p:Platform=x64 /p:SelfContained=false /p:WindowsAppSDKSelfContained=true /p:NuGetAudit=false "/p:PublishDir=$out\" /nologo /verbosity:minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run core self-test suite
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath ./.dotnet/ci-publish/BatteryDisplay.exe -ArgumentList '--self-test' -Wait -PassThru
-          if ($p.ExitCode -ne 0) {
-            if (Test-Path ./.dotnet/ci-publish/self-test.json) { Get-Content ./.dotnet/ci-publish/self-test.json }
-            exit $p.ExitCode
+          $dir = [IO.Path]::GetFullPath('./.dotnet/ci-test')
+          $p = Start-Process -FilePath (Join-Path $dir 'BatteryDisplay.exe') -ArgumentList '--self-test' -WorkingDirectory $dir -PassThru
+          if (-not $p.WaitForExit(120000)) {
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+            throw 'Core self-test timed out after 120s'
           }
-          $report = Get-Content ./.dotnet/ci-publish/self-test.json -Raw | ConvertFrom-Json
+          if (Test-Path (Join-Path $dir 'startup-error.txt')) { Get-Content (Join-Path $dir 'startup-error.txt') }
+          if (Test-Path (Join-Path $dir 'self-test.json')) { Get-Content (Join-Path $dir 'self-test.json') }
+          if ($p.ExitCode -ne 0) { exit $p.ExitCode }
+          $report = Get-Content (Join-Path $dir 'self-test.json') -Raw | ConvertFrom-Json
           Write-Host "Core self-test passed: $($report.ProtocolChecks) checks"
           if (-not $report.Passed) { exit 1 }
 
