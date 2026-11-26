@@ -21,6 +21,30 @@ internal static class AutoUpdate
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { return false; }
     }
+    internal static bool IsOwnedUpdateWorkspace(string workspace, string? tempRoot = null)
+    {
+        try
+        {
+            string full = Path.GetFullPath(workspace).TrimEnd(Path.DirectorySeparatorChar);
+            string root = Path.GetFullPath(tempRoot ?? Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar);
+            return string.Equals(Path.GetDirectoryName(full)?.TrimEnd(Path.DirectorySeparatorChar), root, StringComparison.OrdinalIgnoreCase)
+                && Path.GetFileName(full).StartsWith("PeriRing-update-", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (ArgumentException) { return false; }
+    }
+
+    internal static bool IsValidHealthPath(string candidate, string? tempRoot = null)
+    {
+        try
+        {
+            string full = Path.GetFullPath(candidate);
+            string? parent = Path.GetDirectoryName(full);
+            return parent is not null && IsOwnedUpdateWorkspace(parent, tempRoot)
+                && string.Equals(Path.GetFileName(full), "healthy", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (ArgumentException) { return false; }
+    }
+
     internal const long MaximumDownload = 150 * 1024 * 1024;
     internal static bool ValidPath(string name)
     {
@@ -113,8 +137,7 @@ internal static class AutoUpdate
         {
             try
             {
-                if (Path.GetDirectoryName(workspace) == Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar)
-                    && Path.GetFileName(workspace).StartsWith("PeriRing-update-")) Directory.Delete(workspace, true);
+                if (IsOwnedUpdateWorkspace(workspace)) Directory.Delete(workspace, true);
             }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }

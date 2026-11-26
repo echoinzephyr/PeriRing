@@ -15,7 +15,9 @@ internal static class NativeWindow
     private delegate IntPtr SubclassProc(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam, nuint id, nuint data);
     private static readonly SubclassProc minimumSizeProc = MinimumSizeMessage;
     private static readonly Dictionary<IntPtr, (double Width, double Height)> minimumSizes = [];
+    private static readonly Dictionary<IntPtr, Action> deviceChangeCallbacks = [];
     private const uint GetMinMaxInfoMessage = 0x0024;
+    private const uint DeviceChangeMessage = 0x0219;
     private const nuint MinimumSizeSubclassId = 0x5052;
     [DllImport("comctl32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -62,6 +64,8 @@ internal static class NativeWindow
             throw new InvalidOperationException("无法设置浮层的最小尺寸");
         }
     }
+    public static void SetDeviceChangeHandler(IntPtr hwnd, Action onDeviceChanged) => deviceChangeCallbacks[hwnd] = onDeviceChanged;
+
     private static IntPtr MinimumSizeMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam, nuint id, nuint data)
     {
         var result = DefSubclassProc(hwnd, message, wParam, lParam);
@@ -73,9 +77,14 @@ internal static class NativeWindow
             info.MinTrackSize.Y = Math.Max(info.MinTrackSize.Y, (int)Math.Ceiling(minimum.Height * scale));
             Marshal.StructureToPtr(info, lParam, false);
         }
+        else if (message == DeviceChangeMessage && (nuint)wParam == 0x0007 && deviceChangeCallbacks.TryGetValue(hwnd, out var callback))
+        {
+            callback();
+        }
         else if (message == 0x0082) // WM_NCDESTROY
         {
             minimumSizes.Remove(hwnd);
+            deviceChangeCallbacks.Remove(hwnd);
             RemoveWindowSubclass(hwnd, minimumSizeProc, id);
         }
         return result;
@@ -101,6 +110,16 @@ internal static class NativeWindow
     }
     public static void ShowInactive(IntPtr hwnd) => ShowWindow(hwnd, 4);
     public static (int X, int Y) CursorPosition() { GetCursorPos(out var point); return (point.X, point.Y); }
+    public static void HideFromSwitchers(AppWindow window, IntPtr hwnd)
+    {
+        try { window.IsShownInSwitchers = false; }
+        catch (Exception ex) when (ex is NotImplementedException or COMException)
+        {
+            var style = GetWindowLongPtrW(hwnd, -20).ToInt64();
+            SetWindowLongPtrW(hwnd, -20, new IntPtr(style | 0x80));
+            DebugService.Log("window", "switcher-fallback", new { Type = ex.GetType().Name, ex.HResult });
+        }
+    }
     public static void NoActivate(IntPtr hwnd)
     {
         var style = GetWindowLongPtrW(hwnd, -20).ToInt64();

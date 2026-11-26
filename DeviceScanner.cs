@@ -25,6 +25,7 @@ internal static class DeviceScanner
         var native = await nativeTask;
         var result = new List<Peripheral>();
         var bleIds = (await leTask).Select(d => d.Id).ToHashSet();
+        var pendingGatt = new List<(int Index, string DeviceId)>();
         foreach (var d in (await classicTask).Concat(await leTask))
         {
             token.ThrowIfCancellationRequested();
@@ -43,13 +44,21 @@ internal static class DeviceScanner
                     && int.TryParse(value.ToString(), out int number) && number is >= 0 and <= 100)
                 { level = number; source = "Windows 上报"; }
             }
-            if (connected && !level.HasValue && bleIds.Contains(d.Id))
-            {
-                level = await ReadGattAsync(d.Id, token);
-                if (level.HasValue) source = "蓝牙电量服务";
-            }
             string id = address.Length == 12 ? address : container != Guid.Empty ? container.ToString() : d.Id;
+            if (connected && !level.HasValue && bleIds.Contains(d.Id)) pendingGatt.Add((result.Count, d.Id));
             result.Add(new(id, string.IsNullOrWhiteSpace(d.Name) ? "蓝牙设备" : d.Name, connected, level, source));
+        }
+        if (pendingGatt.Count > 0)
+        {
+            using var gate = new SemaphoreSlim(4);
+            var gattReadings = await Task.WhenAll(pendingGatt.Select(async item =>
+            {
+                await gate.WaitAsync(token);
+                try { return (item.Index, Level: await ReadGattAsync(item.DeviceId, token)); }
+                finally { gate.Release(); }
+            }));
+            foreach (var (index, gattLevel) in gattReadings)
+                if (gattLevel.HasValue) result[index] = result[index] with { Battery = gattLevel, Source = "蓝牙电量服务" };
         }
         return result.GroupBy(d => d.Id).Select(g =>
         {

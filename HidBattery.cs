@@ -106,50 +106,6 @@ internal static class HidBattery
         return result;
     }
 
-    public static List<Peripheral> ReadAll(CancellationToken token)
-    {
-        var result = new List<Peripheral>();
-        foreach (string path in Paths())
-        {
-            token.ThrowIfCancellationRequested();
-            // Match this receiver precisely; unrelated vendor collections must not be queried.
-            if (!path.Contains("vid_5253&pid_1020", StringComparison.OrdinalIgnoreCase)) continue;
-            using var handle = CreateFileW(path, 0xC0000000, 3, IntPtr.Zero, 3, 0, IntPtr.Zero);
-            if (handle.IsInvalid) continue;
-            var attributes = new Attributes { Size = (uint)Marshal.SizeOf<Attributes>() };
-            if (!HidD_GetAttributes(handle, ref attributes) || attributes.Vendor != 0x5253 || attributes.Product != 0x1020) continue;
-            if (!HidD_GetPreparsedData(handle, out var data)) continue;
-            Caps caps;
-            try { if (HidP_GetCaps(data, out caps) < 0) continue; }
-            finally { HidD_FreePreparsedData(data); }
-            if (caps.UsagePage != 0xFF01 || caps.FeatureLength < 21) continue;
-            var productBytes = new byte[256];
-            string product = HidD_GetProductString(handle, productBytes, (uint)productBytes.Length)
-                ? Encoding.Unicode.GetString(productBytes).TrimEnd('\0') : "迈从无线鼠标";
-            Peripheral? reading = null;
-            foreach (int length in new[] { 21, (int)caps.FeatureLength }.Distinct())
-            {
-                // Sending the status query is required before each feature read.
-                var request = Enumerable.Repeat((byte)0xFF, length).ToArray();
-                request[0] = 0x11;
-                request[1] = 0xF9; // Inverted read-status command 0x06.
-                if (!HidD_SetFeature(handle, request, request.Length)) continue;
-                for (int attempt = 0; attempt < 4; attempt++)
-                {
-                    if (token.WaitHandle.WaitOne(40)) token.ThrowIfCancellationRequested();
-                    var response = new byte[length];
-                    response[0] = 0x11;
-                    if (!HidD_GetFeature(handle, response, response.Length)) continue;
-                    reading = ParseStatus(response, product, path);
-                    if (reading is not null) break;
-                }
-                if (reading is not null) break;
-            }
-            result.Add(reading ?? new("hid:" + path.ToUpperInvariant(), $"迈从 · {product}", false, null, "接收器未返回有效电量", "2.4G"));
-        }
-        return result;
-    }
-
     internal static Peripheral? ParseStatus(byte[] response, string product, string path, ushort? wiredProduct = null, byte reportId = 0x11)
     {
         if (response.Length < 13 || response[0] != reportId || response[1] != 0xF9) return null;

@@ -13,23 +13,28 @@ internal sealed class TrayController : IDisposable
     public bool Refreshing { get; private set; }
     public string? Error { get; private set; }
     public bool CheckingUpdates { get; private set; }
+    public bool InstallingUpdate { get; private set; }
     public UpdateResult? Update { get; private set; }
+    private CancellationTokenSource? updateCts;
     private readonly DispatcherQueue dispatcher = DispatcherQueue.GetForCurrentThread();
     private readonly DispatcherQueueTimer timer;
     private readonly DispatcherQueueTimer trayDpiTimer;
     private readonly DispatcherQueueTimer updateTimer;
+    private readonly DispatcherQueueTimer deviceChangeTimer;
     public string UpdateStatus { get; private set; } = "";
     private DateTimeOffset lastUpdateCheck = DateTimeOffset.MinValue;
     private DateTimeOffset lastCleanup = DateTimeOffset.MinValue;
     private int trayIconSize;
+    private bool taskbarLight;
+    private Task? activeRefresh;
     private readonly Forms.NotifyIcon manager = new();
     private readonly LowBatteryAlerts lowBatteryAlerts = new();
     private readonly BatteryNotifications notifications;
     private readonly CancellationTokenSource lifetime = new();
     private readonly BatteryHistory batteryHistory = BatteryHistory.Load();
     private readonly BatteryJournal journal;
-    private readonly EventWaitHandle showEvent = new(false, EventResetMode.AutoReset, "Local\\BatteryDisplay.ShowWindow");
-    private readonly RegisteredWaitHandle showWait;
+    private readonly EventWaitHandle? showEvent;
+    private readonly RegisteredWaitHandle? showWait;
     private readonly FlyoutWindow window;
     private readonly TrayMenuWindow menuWindow;
     private readonly HoverWindow hoverWindow;
@@ -37,6 +42,7 @@ internal sealed class TrayController : IDisposable
     private readonly DispatcherQueueTimer hoverTracking;
     private (int X, int Y) hoverOrigin;
     private bool quitting;
+    private bool sessionLocked;
     private readonly bool preview;
 
     public TrayController(bool show, bool preview)
@@ -45,21 +51,21 @@ internal sealed class TrayController : IDisposable
         journal = preview ? new() : BatteryJournal.Load(Path.Combine(AppContext.BaseDirectory, "data", "battery-history.json"), DateTimeOffset.Now);
         DebugService.Enabled = Preferences.DebugMode;
         window = new FlyoutWindow(this);
-        File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "Device flyout ready\n");
+        DebugService.Log("startup", "flyout-ready");
         menuWindow = new TrayMenuWindow(this);
-        File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "Tray menu ready\n");
+        DebugService.Log("startup", "menu-ready");
         hoverWindow = new HoverWindow();
         notifications = new(() => dispatcher.TryEnqueue(() =>
         {
             if (!quitting) { HideHover(); window.ShowDevices(); window.ShowFlyout(); }
         }));
-        File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "Hover window ready\n");
+        DebugService.Log("startup", "hover-ready");
         hoverDelay = dispatcher.CreateTimer();
-        hoverDelay.Interval = TimeSpan.FromMilliseconds(650);
+        hoverDelay.Interval = TimeSpan.FromMilliseconds(420);
         hoverDelay.IsRepeating = false;
         hoverDelay.Tick += (_, _) =>
         {
-            if (manager.Text.Length == 0 && !menuWindow.IsOpen && !window.IsFlyoutVisible) hoverWindow.ShowValues(TrayDevices, Preferences);
+            if (!menuWindow.IsOpen && !window.IsFlyoutVisible) hoverWindow.ShowValues(TrayDevices, Preferences);
         };
         hoverTracking = dispatcher.CreateTimer();
         hoverTracking.Interval = TimeSpan.FromMilliseconds(100);
@@ -69,10 +75,11 @@ internal sealed class TrayController : IDisposable
             if (Math.Abs(cursor.X - hoverOrigin.X) > 22 || Math.Abs(cursor.Y - hoverOrigin.Y) > 22 || menuWindow.IsOpen || window.IsFlyoutVisible) HideHover();
         };
         trayIconSize = NativeWindow.TrayIconSize();
+        taskbarLight = TrayIcon.IsTaskbarLight();
         manager.Icon = TrayIcon.CreateCombined([], size: trayIconSize);
-        manager.Text = AppBrand.Name + " · 正在读取";
+        manager.Text = "";
         manager.Visible = true;
-        File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "Tray icon ready\n");
+        DebugService.Log("startup", "tray-ready");
         manager.MouseClick += (_, e) => dispatcher.TryEnqueue(() =>
         {
             HideHover();
@@ -80,14 +87,25 @@ internal sealed class TrayController : IDisposable
             else window.ToggleFlyout();
         });
         manager.MouseMove += (_, _) => dispatcher.TryEnqueue(ArmHover);
-        showWait = ThreadPool.RegisterWaitForSingleObject(showEvent, (_, _) => dispatcher.TryEnqueue(window.ShowFlyout), null, Timeout.Infinite, false);
+        if (!preview)
+        {
+            showEvent = new(false, EventResetMode.AutoReset, "Local\\BatteryDisplay.ShowWindow");
+            showWait = ThreadPool.RegisterWaitForSingleObject(showEvent, (_, _) => dispatcher.TryEnqueue(window.ShowFlyout), null, Timeout.Infinite, false);
+        }
         timer = dispatcher.CreateTimer();
         timer.Interval = TimeSpan.FromSeconds(Preferences.RefreshSeconds);
         timer.Tick += (_, _) => Refresh();
         timer.Start();
+        deviceChangeTimer = dispatcher.CreateTimer();
+        deviceChangeTimer.Interval = TimeSpan.FromMilliseconds(1500);
+        deviceChangeTimer.IsRepeating = false;
+        deviceChangeTimer.Tick += (_, _) => Refresh();
         trayDpiTimer = dispatcher.CreateTimer();
         trayDpiTimer.Interval = TimeSpan.FromSeconds(3);
-        trayDpiTimer.Tick += (_, _) => { if (NativeWindow.TrayIconSize() != trayIconSize) UpdateIcons(); };
+        trayDpiTimer.Tick += (_, _) =>
+        {
+            if (NativeWindow.TrayIconSize() != trayIconSize || TrayIcon.IsTaskbarLight() != taskbarLight) UpdateIcons();
+        };
         trayDpiTimer.Start();
         updateTimer = dispatcher.CreateTimer();
         updateTimer.Interval = TimeSpan.FromSeconds(15);
@@ -103,6 +121,8 @@ internal sealed class TrayController : IDisposable
         };
         updateTimer.Start();
         SystemEvents.PowerModeChanged += PowerChanged;
+        SystemEvents.UserPreferenceChanged += UserPreferenceChanged;
+        SystemEvents.SessionSwitch += SessionSwitched;
         if (preview)
         {
             Devices = [new("preview-mouse", "MCHOSE AX5 V2", true, 75, "迈从接收器", "2.4G", VendorDisplay: 80),
@@ -112,7 +132,11 @@ internal sealed class TrayController : IDisposable
             Updated = DateTimeOffset.Now;
             var demo = Devices[0];
             journal.Observe([demo with { Battery = 100, VendorDisplay = 100, Charging = true }], Updated.Value.AddDays(-2));
-            journal.Observe([demo with { Battery = 82, VendorDisplay = 80 }], Updated.Value.AddMinutes(-15));
+            journal.Observe([demo with { Battery = 96, VendorDisplay = 100 }], Updated.Value.AddMinutes(-115));
+            journal.Observe([demo with { Battery = 91, VendorDisplay = 90 }], Updated.Value.AddMinutes(-90));
+            journal.Observe([demo with { Battery = 87, VendorDisplay = 90 }], Updated.Value.AddMinutes(-65));
+            journal.Observe([demo with { Battery = 83, VendorDisplay = 80 }], Updated.Value.AddMinutes(-40));
+            journal.Observe([demo with { Battery = 79, VendorDisplay = 80 }], Updated.Value.AddMinutes(-18));
             journal.Observe([demo], Updated.Value);
         }
         if (!preview) notifications.Register();
@@ -120,7 +144,55 @@ internal sealed class TrayController : IDisposable
         else if (!preview) dispatcher.TryEnqueue(Refresh);
     }
     private void PowerChanged(object sender, PowerModeChangedEventArgs e)
-    { if (e.Mode == PowerModes.Resume && !quitting) dispatcher.TryEnqueue(Refresh); }
+    { if (e.Mode == PowerModes.Resume && !quitting && !sessionLocked) dispatcher.TryEnqueue(Refresh); }
+
+    private void SessionSwitched(object sender, SessionSwitchEventArgs e)
+    {
+        if (quitting || preview) return;
+        if (e.Reason == SessionSwitchReason.SessionLock)
+        {
+            dispatcher.TryEnqueue(() =>
+            {
+                if (quitting) return;
+                sessionLocked = true;
+                timer.Stop();
+                deviceChangeTimer.Stop();
+                DebugService.Log("power", "session-locked");
+            });
+        }
+        else if (e.Reason == SessionSwitchReason.SessionUnlock)
+        {
+            dispatcher.TryEnqueue(() =>
+            {
+                if (quitting) return;
+                sessionLocked = false;
+                if (!timer.IsRunning) timer.Start();
+                DebugService.Log("power", "session-unlocked");
+                Refresh();
+            });
+        }
+    }
+
+    private void UserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
+    {
+        if (quitting || e.Category is not (UserPreferenceCategory.General or UserPreferenceCategory.Color or UserPreferenceCategory.VisualStyle)) return;
+        dispatcher.TryEnqueue(() =>
+        {
+            if (quitting) return;
+            if (TrayIcon.IsTaskbarLight() != taskbarLight || NativeWindow.TrayIconSize() != trayIconSize) UpdateIcons();
+        });
+    }
+
+    public void NotifyDeviceChanged()
+    {
+        if (quitting || preview || sessionLocked) return;
+        dispatcher.TryEnqueue(() =>
+        {
+            if (quitting || preview || sessionLocked) return;
+            deviceChangeTimer.Stop();
+            deviceChangeTimer.Start();
+        });
+    }
 
     public List<Peripheral> PresentedDevices => Preferences.Present(Devices);
     public List<Peripheral> ManagedDevices => PresentedDevices.Where(d => d.Battery.HasValue || d.Gauge.HasValue || d.Charging).ToList();
@@ -138,7 +210,17 @@ internal sealed class TrayController : IDisposable
         if (!hoverTracking.IsRunning) hoverTracking.Start();
     }
     private void HideHover() { hoverDelay.Stop(); hoverTracking.Stop(); hoverWindow.HideValues(); }
-    public async void Refresh()
+    public void Refresh() => _ = RefreshAsync();
+    public Task RefreshAsync()
+    {
+        if (quitting || preview) return Task.CompletedTask;
+        if (activeRefresh is { IsCompleted: false } current) return current;
+        var task = RunRefreshAsync();
+        activeRefresh = task;
+        return task;
+    }
+
+    private async Task RunRefreshAsync()
     {
         if (Refreshing || quitting || preview) return;
         Refreshing = true;
@@ -179,13 +261,12 @@ internal sealed class TrayController : IDisposable
         var devices = TrayDevices;
         var old = manager.Icon;
         trayIconSize = NativeWindow.TrayIconSize();
+        taskbarLight = TrayIcon.IsTaskbarLight();
         manager.Icon = Preferences.RingIcons ? TrayIcon.CreateCombined(devices, Error is not null, trayIconSize, Preferences.LowBatteryThreshold)
             : TrayIcon.Create(devices.Select(d => d.DisplayBattery).Min(), devices.Count > 0, Error is not null, false, trayIconSize, Preferences.LowBatteryThreshold);
         old?.Dispose();
-        // Use the compact system tooltip whenever all lines fit; larger lists use the same compact layout in WinUI.
-        string tooltip = string.Join("\n", devices.Select(d => $"{d.DisplayName}: {d.TooltipLevel}"));
-        if (devices.Count == 0) tooltip = AppBrand.Name + "：暂无可显示电量的在线设备";
-        manager.Text = tooltip.Length <= 127 ? tooltip : "";
+        // Always use the Fluent WinUI hover card instead of the legacy system tooltip.
+        manager.Text = "";
         manager.Visible = true;
         if (hoverWindow.IsVisible) hoverWindow.ShowValues(devices, Preferences);
     }
@@ -197,14 +278,18 @@ internal sealed class TrayController : IDisposable
     {
         Preferences.LowBatteryAlerts = enabled;
         Save();
-        if (enabled && !preview) Refresh();
+        if (!enabled || preview) return;
+        if (Updated.HasValue && Error is null) CheckLowBattery();
+        else Refresh();
     }
 
     public void SetLowBatteryThreshold(int threshold)
     {
         Preferences.LowBatteryThreshold = threshold;
         Save();
-        if (Preferences.LowBatteryAlerts) Refresh();
+        if (!Preferences.LowBatteryAlerts || preview) return;
+        if (Updated.HasValue && Error is null) CheckLowBattery();
+        else Refresh();
     }
 
     public bool SetDeviceAlias(string id, string? alias)
@@ -217,6 +302,70 @@ internal sealed class TrayController : IDisposable
         {
             if (previous is null) Preferences.DeviceAliases.Remove(id);
             else Preferences.DeviceAliases[id] = previous;
+            return false;
+        }
+        UpdateIcons();
+        window.UpdateView();
+        return true;
+    }
+
+    public List<BatterySample> MergedSamplesFor(string canonicalId) =>
+        journal.ReadMergedSamples(Preferences.LinkedIdsFor(canonicalId), DateTimeOffset.Now);
+
+    public List<(string Id, string Label)> LinkableDevicesFor(string canonicalId)
+    {
+        string root = Preferences.ResolveCanonicalId(canonicalId);
+        var linked = Preferences.LinkedIdsFor(root).ToHashSet(StringComparer.Ordinal);
+        var candidates = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var d in Devices)
+        {
+            if (!Peripheral.SupportsAlias(d.Id) || linked.Contains(d.Id) || Preferences.ResolveCanonicalId(d.Id) == root) continue;
+            candidates[d.Id] = $"{d.Name}（{d.Transport}）";
+        }
+        foreach (var j in JournalDevices)
+        {
+            if (!Peripheral.SupportsAlias(j.Id) || linked.Contains(j.Id) || Preferences.ResolveCanonicalId(j.Id) == root) continue;
+            candidates.TryAdd(j.Id, $"{j.Name}（{j.Transport}）");
+        }
+        return candidates.Select(kv => (kv.Key, kv.Value)).OrderBy(item => item.Value, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    public string DescribeDeviceId(string id)
+    {
+        var live = Devices.FirstOrDefault(d => d.Id == id);
+        if (live is not null) return $"{live.Name}（{live.Transport}）";
+        var history = JournalDevices.FirstOrDefault(d => d.Id == id);
+        if (history is not null) return $"{history.Name}（{history.Transport}）";
+        return id;
+    }
+
+    public bool LinkDevice(string secondaryId, string primaryId)
+    {
+        string root = Preferences.ResolveCanonicalId(primaryId);
+        if (secondaryId == root || !Peripheral.SupportsAlias(secondaryId) || !Peripheral.SupportsAlias(root)) return false;
+        var previous = new Dictionary<string, string>(Preferences.DeviceLinks, StringComparer.Ordinal);
+        Preferences.DeviceLinks[secondaryId] = root;
+        Preferences.DeviceLinks = Preferences.NormalizeLinks(Preferences.DeviceLinks);
+        try { Preferences.Save(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Preferences.DeviceLinks = previous;
+            return false;
+        }
+        UpdateIcons();
+        window.UpdateView();
+        return true;
+    }
+
+    public bool UnlinkDevice(string secondaryId)
+    {
+        if (!Preferences.DeviceLinks.ContainsKey(secondaryId)) return false;
+        var previous = new Dictionary<string, string>(Preferences.DeviceLinks, StringComparer.Ordinal);
+        Preferences.DeviceLinks.Remove(secondaryId);
+        try { Preferences.Save(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Preferences.DeviceLinks = previous;
             return false;
         }
         UpdateIcons();
@@ -258,9 +407,10 @@ internal sealed class TrayController : IDisposable
         window.ShowUpdates(); window.ShowFlyout();
         RunUpdate(true);
     }
-    private async void RunUpdate(bool manual)
+    private void RunUpdate(bool manual) => _ = RunUpdateAsync(manual);
+    private async Task RunUpdateAsync(bool manual)
     {
-        if (CheckingUpdates) return;
+        if (CheckingUpdates || InstallingUpdate) return;
         if (!manual)
         {
             if (AutoUpdate.RecentFailure()) { lastUpdateCheck = DateTimeOffset.Now; return; }
@@ -269,22 +419,76 @@ internal sealed class TrayController : IDisposable
         CheckingUpdates = true;
         Update = null;
         UpdateStatus = "正在检查新版本…";
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
+        updateCts = cts;
+        window.UpdateView();
+        bool autoInstall = false;
+        try
+        {
+            Update = await UpdateService.CheckAsync(cts.Token);
+            UpdateStatus = Update.Message;
+            DebugService.Log("update", "checked", new { Update.Success, Update.Available, Update.LatestVersion });
+            if (Update.Success && Update.Available && !preview)
+            {
+                if (Preferences.AutomaticUpdates) autoInstall = true;
+                else UpdateStatus = $"发现新版本 v{Update.LatestVersion}，可点击下方按钮立即更新。";
+            }
+        }
+        catch (OperationCanceledException) when (!lifetime.IsCancellationRequested)
+        {
+            UpdateStatus = "已取消检查更新。";
+            Update = null;
+        }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            UpdateStatus = "检查更新未完成：" + ex.Message + "。可稍后重试。";
+            DebugService.Log("update", "failed", new { Type = ex.GetType().Name, ex.HResult });
+            Update = new(false, false, UpdateStatus, ReleasePage: new(UpdateService.Repository + "/releases"));
+        }
+        finally
+        {
+            if (ReferenceEquals(updateCts, cts)) updateCts = null;
+            CheckingUpdates = false;
+            if (!quitting) window.UpdateView();
+        }
+        if (autoInstall && Update is { Success: true, Available: true } release && !quitting)
+            await InstallUpdateAsync(release);
+    }
+
+    public void InstallAvailableUpdate()
+    {
+        if (Update is { Success: true, Available: true } release && !preview)
+            _ = InstallUpdateAsync(release);
+    }
+
+    public void CancelUpdate()
+    {
+        try { updateCts?.Cancel(); }
+        catch (ObjectDisposedException) { }
+    }
+
+    private async Task InstallUpdateAsync(UpdateResult release)
+    {
+        if (CheckingUpdates || InstallingUpdate || quitting || preview) return;
+        InstallingUpdate = true;
+        UpdateStatus = "正在准备下载更新…";
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
+        updateCts = cts;
         window.UpdateView();
         try
         {
-            Update = await UpdateService.CheckAsync(lifetime.Token);
-            UpdateStatus = Update.Message;
-            DebugService.Log("update", "checked", new { Update.Success, Update.Available, Update.LatestVersion });
-            if (Update.Success && Update.Available && (manual || Preferences.AutomaticUpdates) && !preview)
-            {
-                var progress = new Progress<string>(message => { if (!quitting) { UpdateStatus = message; window.UpdateView(); } });
-                var plan = await Task.Run(() => AutoUpdate.PrepareAsync(Update, progress, lifetime.Token));
-                if (quitting) return;
-                UpdateStatus = "正在安装更新，将自动重新启动…";
-                window.UpdateView();
-                AutoUpdate.Launch(plan);
-                Quit();
-            }
+            var progress = new Progress<string>(message => { if (!quitting) { UpdateStatus = message; window.UpdateView(); } });
+            var plan = await Task.Run(() => AutoUpdate.PrepareAsync(release, progress, cts.Token), cts.Token);
+            if (quitting) return;
+            UpdateStatus = "正在安装更新，将自动重新启动…";
+            window.UpdateView();
+            AutoUpdate.Launch(plan);
+            Quit();
+        }
+        catch (OperationCanceledException) when (!lifetime.IsCancellationRequested)
+        {
+            UpdateStatus = "已取消更新下载。";
         }
         catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
         catch (Exception ex)
@@ -293,9 +497,15 @@ internal sealed class TrayController : IDisposable
             DebugService.Log("update", "failed", new { Type = ex.GetType().Name, ex.HResult });
             Update = new(false, false, UpdateStatus, ReleasePage: new(UpdateService.Repository + "/releases"));
         }
-        finally { CheckingUpdates = false; if (!quitting) window.UpdateView(); }
+        finally
+        {
+            if (ReferenceEquals(updateCts, cts)) updateCts = null;
+            InstallingUpdate = false;
+            if (!quitting) window.UpdateView();
+        }
     }
-    public async void ExportDiagnostics()
+    public void ExportDiagnostics() => _ = ExportDiagnosticsAsync();
+    public async Task ExportDiagnosticsAsync()
     {
         try
         {
@@ -303,9 +513,7 @@ internal sealed class TrayController : IDisposable
             timeout.CancelAfter(TimeSpan.FromSeconds(40));
             var report = await Task.Run(() => BatteryService.ScanAsync(timeout.Token));
             // Explicit export collects interface metadata even if continuous logging is off.
-            bool logging = DebugService.Enabled;
-            try { DebugService.Enabled = true; DebugService.Observe(await Task.Run(() => HidBattery.Enumerate(timeout.Token))); }
-            finally { DebugService.Enabled = logging; }
+            DebugService.Observe(await Task.Run(() => HidBattery.Enumerate(timeout.Token)), force: true);
             string zip = await Task.Run(() => DebugService.Export(report));
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", "/select,\"" + zip + "\"") { UseShellExecute = true });
         }
@@ -331,8 +539,12 @@ internal sealed class TrayController : IDisposable
     }
     public static bool StartupEnabled()
     {
-        using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run");
-        return key?.GetValue("BatteryDisplay") is string;
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run");
+            return key?.GetValue("BatteryDisplay") is string;
+        }
+        catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or IOException) { return false; }
     }
     public void SetStartup(bool enabled)
     {
@@ -348,7 +560,7 @@ internal sealed class TrayController : IDisposable
     public async Task CaptureAsync()
     {
         window.KeepOpenForCapture();
-        for (int i = 0; i < 180 && (!Updated.HasValue || Refreshing); i++) await Task.Delay(250);
+        if (!preview && (!Updated.HasValue || Refreshing)) await RefreshAsync();
         await window.CaptureViewsAsync(preview);
     }
     public Task RunInteractionChecksAsync() => window.RunInteractionChecksAsync();
@@ -358,12 +570,15 @@ internal sealed class TrayController : IDisposable
         quitting = true;
         lifetime.Cancel();
         SystemEvents.PowerModeChanged -= PowerChanged;
+        SystemEvents.UserPreferenceChanged -= UserPreferenceChanged;
+        SystemEvents.SessionSwitch -= SessionSwitched;
         timer.Stop();
+        deviceChangeTimer.Stop();
         trayDpiTimer.Stop();
         updateTimer.Stop();
         hoverDelay.Stop(); hoverTracking.Stop();
-        showWait.Unregister(null);
-        showEvent.Dispose();
+        showWait?.Unregister(null);
+        showEvent?.Dispose();
         notifications.Dispose();
         var managerImage = manager.Icon; manager.Dispose(); managerImage?.Dispose();
         window.AllowClose = true;

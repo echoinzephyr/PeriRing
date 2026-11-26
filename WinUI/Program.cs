@@ -29,8 +29,7 @@ internal static class Program
                 var report = Task.Run(() => BatteryService.ScanAsync(timeout.Token)).GetAwaiter().GetResult();
                 if (args.Contains("--export-diagnostics"))
                 {
-                    DebugService.Enabled = true;
-                    DebugService.Observe(HidBattery.Enumerate(timeout.Token));
+                    DebugService.Observe(HidBattery.Enumerate(timeout.Token), force: true);
                     File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "diagnostics-export.txt"), DebugService.Export(report));
                     return;
                 }
@@ -42,7 +41,9 @@ internal static class Program
                 return;
             }
             if (args.Contains("--self-test")) { CoreSelfTest.Run(); return; }
-            using var mutex = new Mutex(true, "Local\\BatteryDisplay.Tray", out bool first);
+            bool isolated = args.Contains("--ui-self-test") || args.Contains("--ui-preview") || args.Contains("--capture-ui") || args.Contains("--minimal-ui");
+            bool first = true;
+            using var mutex = isolated ? null : new Mutex(true, "Local\\BatteryDisplay.Tray", out first);
             if (!first)
             {
                 try { using var show = EventWaitHandle.OpenExisting("Local\\BatteryDisplay.ShowWindow"); show.Set(); }
@@ -80,9 +81,9 @@ public sealed partial class BatteryApplication : Application
             DebugService.Log("ui", "unhandled", new { Type = e.Exception.GetType().Name, e.Exception.HResult });
             File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "ui-error.txt"), e.Exception.ToString());
         };
-        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "Initializing WinUI resources\n");
+        DebugService.Log("startup", "init-resources");
         InitializeComponent();
-        File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "WinUI resources initialized\n");
+        DebugService.Log("startup", "resources-ready");
     }
     protected override void OnLaunched(LaunchActivatedEventArgs e)
     {
@@ -92,22 +93,16 @@ public sealed partial class BatteryApplication : Application
             {
                 diagnosticWindow = new Window { Title = AppBrand.Name + " · UI 检查", Content = new TextBlock { Text = "WinUI 3", FontSize = 32 } };
                 diagnosticWindow.Activate();
-                File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "Minimal UI ready\n");
+                DebugService.Log("startup", "minimal-ui-ready");
                 return;
             }
-            File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "Creating tray controller\n");
+            DebugService.Log("startup", "create-controller");
             controller = new TrayController(args.Contains("--show") || args.Contains("--ui-preview") || args.Contains("--capture-ui") || args.Contains("--ui-self-test"), args.Contains("--ui-preview") || args.Contains("--ui-self-test"));
             if (args.Contains("--debug")) { controller.Preferences.DebugMode = true; controller.Save(); }
             int health = Array.IndexOf(args, "--update-health");
-            if (health >= 0 && health + 1 < args.Length)
-            {
-                string path = Path.GetFullPath(args[health + 1]);
-                string parent = Path.GetDirectoryName(path)!;
-                if (Path.GetDirectoryName(parent)?.TrimEnd('\\') == Path.GetTempPath().TrimEnd('\\')
-                    && Path.GetFileName(parent).StartsWith("PeriRing-update-") && Path.GetFileName(path) == "healthy")
-                    File.WriteAllText(path, UpdateService.CurrentLabel);
-            }
-            File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "ui-startup.log"), "Tray controller ready\n");
+            if (health >= 0 && health + 1 < args.Length && AutoUpdate.IsValidHealthPath(args[health + 1]))
+                File.WriteAllText(Path.GetFullPath(args[health + 1]), UpdateService.CurrentLabel);
+            DebugService.Log("startup", "controller-ready");
             if (args.Contains("--ui-self-test")) VerifyAndExit();
             else if (args.Contains("--capture-ui")) CaptureAndExit();
         }

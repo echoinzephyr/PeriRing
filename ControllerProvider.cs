@@ -15,12 +15,18 @@ internal sealed class ControllerProvider : IBatteryProvider
     [DllImport("xinput1_4.dll")]
     private static extern uint XInputGetBatteryInformation(uint user, byte device, out BatteryInfo battery);
 
+    private static int wgiWarmedUp;
+
     public async Task<List<Peripheral>> ReadAsync(CancellationToken token)
     {
         var result = new List<Peripheral>();
-        // WGI's initial device enumeration is asynchronous.
+        // WGI's initial device enumeration is asynchronous; wait once per process lifetime.
         _ = RawGameController.RawGameControllers.Count;
-        await Task.Delay(150, token);
+        if (Volatile.Read(ref wgiWarmedUp) == 0)
+        {
+            await Task.Delay(150, token);
+            Volatile.Write(ref wgiWarmedUp, 1);
+        }
         var controllers = RawGameController.RawGameControllers.ToArray();
         foreach (var controller in controllers)
         {

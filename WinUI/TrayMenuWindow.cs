@@ -18,7 +18,7 @@ internal sealed class TrayMenuWindow : Window
         Title = AppBrand.Name + "菜单";
         Content = root;
         hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-        AppWindow.IsShownInSwitchers = false;
+        NativeWindow.HideFromSwitchers(AppWindow, hwnd);
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
             presenter.SetBorderAndTitleBar(false, false);
@@ -86,7 +86,7 @@ internal sealed class TrayMenuWindow : Window
         {
             IsOpen = false;
             AppWindow.Hide();
-            File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "menu-error.txt"), ex.ToString());
+            DebugService.Log("menu", "show-failed", new { Type = ex.GetType().Name, ex.HResult });
         }
     }
     public void HideMenu() => menu?.Hide();

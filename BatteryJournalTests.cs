@@ -57,6 +57,37 @@ internal static class BatteryJournalTests
             bounded.Observe([device with { Battery = i % 100 }], now.AddSeconds(i + 1));
         Check(bounded.Read(now.AddHours(1)).Single(entry => entry.Id == device.Id).Samples.Count == BatteryJournal.MaxSamples,
             "Frequent changes are bounded per device");
+
+        var statsEmpty = BatteryJournal.Summarize([new(now, 80, null, false, true)], false);
+        Check(statsEmpty.DischargeRatePerHour is null && statsEmpty.EstimatedRemaining is null && statsEmpty.LastChargedAt is null,
+            "Battery stats never fabricate discharge rates from a single sample");
+        var statsDischarge = BatteryJournal.Summarize([
+            new(now.AddHours(-5), 100, null, true, true),
+            new(now.AddHours(-4), 100, null, false, false),
+            new(now.AddHours(-2), 90, null, false, false),
+            new(now, 80, null, false, false)
+        ], false);
+        Check(statsDischarge.LastChargedAt == now.AddHours(-4)
+            && statsDischarge.DischargeRatePerHour is > 4.9 and < 5.1
+            && statsDischarge.EstimatedRemaining is { TotalHours: > 15.9 and < 16.1 },
+            "Battery stats calculate discharge rate, last full charge and conservative remaining time");
+
+        var linkPrefs = Preferences.FromJson("""{"DeviceAliases":{"dongle":"主力鼠标"},"DeviceLinks":{"cable":"dongle","self":"self","a":"b","b":"a","xinput:0":"dongle"}}""");
+        Check(linkPrefs.DeviceLinks.Count == 1 && linkPrefs.ResolveCanonicalId("cable") == "dongle"
+            && linkPrefs.ResolveCanonicalId("a") == "a" && !linkPrefs.DeviceLinks.ContainsKey("xinput:0"),
+            "Device links sanitize cycles, self-links and temporary XInput slots");
+        var sleepingDongle = new Peripheral("dongle", "AX5 V2", false, 70, "迈从", "2.4G", IsCached: true, ReceiverPresent: true);
+        var activeCable = new Peripheral("cable", "AX5 V2", true, 85, "迈从", "USB", Charging: true);
+        var mergedDevices = linkPrefs.Present([sleepingDongle, activeCable]);
+        Check(mergedDevices.Count == 1 && mergedDevices[0] is { Id: "dongle", DisplayName: "主力鼠标", Battery: 85, Charging: true, Transport: "USB" },
+            "Linked multi-mode devices merge into one canonical entry preferring the active mode");
+
+        var mergedJournal = new BatteryJournal();
+        mergedJournal.Observe([sleepingDongle with { Connected = true, IsCached = false, Battery = 70 }], now.AddMinutes(-20));
+        mergedJournal.Observe([activeCable], now);
+        var mergedHistory = mergedJournal.ReadMergedSamples(linkPrefs.LinkedIdsFor("dongle"), now);
+        Check(mergedHistory.Count == 2 && mergedHistory[0].StartsSegment && !mergedHistory[1].StartsSegment,
+            "Merged history connects multi-mode transitions within the continuity window");
         return checks;
     }
 }

@@ -42,14 +42,15 @@ internal static class DebugService
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
-    public static void Observe(IReadOnlyList<HidDescriptor> devices)
+    public static void Observe(IReadOnlyList<HidDescriptor> devices, bool force = false)
     {
-        if (!Enabled) return;
+        if (!force && !Enabled) return;
         var inventory = devices.Select(d => new DeviceInventory(Key(d.Path), d.Name, $"{d.Vendor:X4}", $"{d.Product:X4}",
             d.Caps.UsagePage, d.Caps.Usage, d.Caps.InputLength, d.Caps.OutputLength, d.Caps.FeatureLength,
             UsbProvider.Adapters.Where(a => a.Matches(d)).Select(a => a.Name).ToArray())).OrderBy(d => d.Key).ToArray();
-        string json = JsonSerializer.Serialize(inventory);
         Inventory = inventory;
+        if (!Enabled) return;
+        string json = JsonSerializer.Serialize(inventory);
         if (json != lastInventory) { lastInventory = json; Log("devices", "inventory-changed", inventory); }
     }
     public static string Export(ScanReport report)

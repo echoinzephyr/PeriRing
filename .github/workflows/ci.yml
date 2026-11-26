@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build WinUI release
+        shell: pwsh
+        run: ./build.ps1 -PublishDirectory ./.dotnet/ci-publish
+
+      - name: Run core self-test suite
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath ./.dotnet/ci-publish/BatteryDisplay.exe -ArgumentList '--self-test' -Wait -PassThru
+          if ($p.ExitCode -ne 0) {
+            if (Test-Path ./.dotnet/ci-publish/self-test.json) { Get-Content ./.dotnet/ci-publish/self-test.json }
+            exit $p.ExitCode
+          }
+          $report = Get-Content ./.dotnet/ci-publish/self-test.json -Raw | ConvertFrom-Json
+          Write-Host "Core self-test passed: $($report.ProtocolChecks) checks"
+          if (-not $report.Passed) { exit 1 }
+
+      - name: Verify release packaging
+        shell: pwsh
+        run: ./tools/Package-Release.ps1
+
+      - name: Upload release bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PeriRing-win-x64
+          path: |
+            release/PeriRing-v*-win-x64.zip
+            release/PeriRing-v*-SHA256.txt
+          retention-days: 14

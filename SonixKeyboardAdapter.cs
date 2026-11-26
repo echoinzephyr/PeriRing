@@ -3,8 +3,9 @@ namespace BatteryDisplay;
 // VK75 identities come from the official VK75 Driver 1.0.1.0 config.xml.
 // The radio battery query is documented by sonix-keyboard-studio/SonixDongle.cs.
 // Shared Apple VID/PID alone is insufficient: also check product name and command interface.
-internal sealed class SonixKeyboardAdapter : IHidBatteryAdapter
+internal sealed class SonixKeyboardAdapter(Func<HidDescriptor, IHidBatterySession> connect) : IHidBatteryAdapter
 {
+    public SonixKeyboardAdapter() : this(d => new HidConnection(d)) { }
     public string Name => "瓦尔基里 / SONiX 键盘";
     public string Models => "VK75 的 2.4G 电量已获用户实测确认；VK99 / VK99 Pro 已登记接口、待实测";
 
@@ -22,7 +23,7 @@ internal sealed class SonixKeyboardAdapter : IHidBatteryAdapter
         // The wired interface is identified without sending any command to it.
         if (IsWired(d)) return [new(d.Id, d.Name, true, null, Name, "USB",
             Note: "USB 有线连接 · 暂未取得电量，可尝试切换到 2.4G 接收器")];
-        using var connection = new HidConnection(d);
+        using var connection = connect(d);
         for (int retry = 0; retry < 2; retry++)
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -30,11 +31,10 @@ internal sealed class SonixKeyboardAdapter : IHidBatteryAdapter
             try
             {
                 await connection.WriteAsync(BatteryRequest(), timeout.Token);
-                for (int attempt = 0; attempt < 20; attempt++)
-                {
-                    int? battery = ParseBattery(await connection.ReadAsync(50, timeout.Token));
-                    if (battery.HasValue) return [new(d.Id, ReceiverName(d.Name), true, battery, Name, "2.4G")];
-                }
+                var reading = await connection.ReadUntilAsync(20, 50,
+                    report => ParseBattery(report) is int battery ? new Peripheral(d.Id, ReceiverName(d.Name), true, battery, Name, "2.4G") : null,
+                    timeout.Token);
+                if (reading is not null) return [reading];
             }
             catch (OperationCanceledException) when (!token.IsCancellationRequested) { }
         }

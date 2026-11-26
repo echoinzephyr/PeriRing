@@ -1,4 +1,4 @@
-param([string]$PublishDirectory = (Join-Path $PSScriptRoot 'dist-winui'))
+﻿param([string]$PublishDirectory = (Join-Path $PSScriptRoot 'dist-winui'))
 $ErrorActionPreference = 'Stop'
 $env:DOTNET_CLI_HOME = Join-Path $PSScriptRoot '.dotnet'
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'

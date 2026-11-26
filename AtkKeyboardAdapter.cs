@@ -1,7 +1,8 @@
 namespace BatteryDisplay;
 
-internal sealed class AtkKeyboardAdapter : IHidBatteryAdapter
+internal sealed class AtkKeyboardAdapter(Func<HidDescriptor, IHidBatterySession> connect) : IHidBatteryAdapter
 {
+    public AtkKeyboardAdapter() : this(d => new HidConnection(d)) { }
     private int sequence;
 
     public string Name => "ATK 键盘";
@@ -15,14 +16,10 @@ internal sealed class AtkKeyboardAdapter : IHidBatteryAdapter
     public async Task<List<Peripheral>> ReadAsync(HidDescriptor d, IReadOnlyList<HidDescriptor> all, CancellationToken token)
     {
         ushort requestId = (ushort)((Interlocked.Increment(ref sequence) & 0x7FFF) + 1);
-        using var connection = new HidConnection(d);
+        using var connection = connect(d);
         await connection.WriteAsync(BatteryRequest(requestId), token);
-        for (int attempt = 0; attempt < 6; attempt++)
-        {
-            var response = await connection.ReadAsync(150, token);
-            if (Parse(response, d, requestId) is { } reading) return [reading];
-        }
-        return [];
+        var reading = await connection.ReadUntilAsync(6, 150, response => Parse(response, d, requestId), token);
+        return reading is not null ? [reading] : [];
     }
 
     internal static byte[] BatteryRequest(ushort sequence)

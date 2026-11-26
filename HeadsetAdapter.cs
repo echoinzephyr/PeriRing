@@ -1,22 +1,17 @@
 namespace BatteryDisplay;
 
-internal sealed class HeadsetAdapter : IHidBatteryAdapter
+internal sealed class HeadsetAdapter(Func<HidDescriptor, IHidBatterySession> connect) : IHidBatteryAdapter
 {
+    public HeadsetAdapter() : this(d => new HidConnection(d)) { }
     public string Name => "赛睿耳机";
     public string Models => "已登记的 Arctis Nova 7 / 5 / 3 Wireless、Arctis 7+、GameBuds";
     public bool Matches(HidDescriptor d) => DeviceCatalog.Find(d, "steelseries") is not null && d.Caps.UsagePage == 0xFFC0 && d.Caps.OutputLength >= 2;
     public async Task<List<Peripheral>> ReadAsync(HidDescriptor d, IReadOnlyList<HidDescriptor> all, CancellationToken token)
     {
-        using var connection = new HidConnection(d);
+        using var connection = connect(d);
         await connection.WriteAsync([0, 0xB0], token);
-        for (int i = 0; i < 6; i++)
-        {
-            var response = await connection.ReadAsync(120, token);
-            if (response is null) break;
-            var reading = Parse(response, d);
-            if (reading is not null) return [reading];
-        }
-        return [];
+        var reading = await connection.ReadUntilAsync(6, 120, response => Parse(response, d), token, stopOnTimeout: true);
+        return reading is not null ? [reading] : [];
     }
     internal static Peripheral? Parse(byte[] response, HidDescriptor d)
     {

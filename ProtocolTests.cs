@@ -214,6 +214,7 @@ internal static class ProtocolTests
         Check(report.Devices.Count == 1 && report.Providers.Count(p => p.Warning is not null) == 1, "One provider failure does not remove another provider's readings");
         count += MchoseHeadsetTests.Run(failures);
         count += Task.Run(() => V9ReaderTests.RunAsync(failures)).GetAwaiter().GetResult();
+        count += Task.Run(() => AdapterSessionTests.RunAsync(failures)).GetAwaiter().GetResult();
         return count;
     }
 

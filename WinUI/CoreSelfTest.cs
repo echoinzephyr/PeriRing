@@ -105,6 +105,36 @@ internal static class CoreSelfTest
             checks++;
             if (redPixels == 0) failures.Add("Low battery dot renders red pixels");
         }
+        using (var errorIcon = TrayIcon.CreateCombined([], error: true, size: 32))
+        using (var errorImage = errorIcon.ToBitmap())
+        {
+            int alertPixels = 0;
+            for (int x = 10; x < 22; x++) for (int y = 8; y < 24; y++)
+            { var c = errorImage.GetPixel(x, y); if (c.A > 100 && c.R > 180 && c.G < 140 && c.B < 150) alertPixels++; }
+            checks++;
+            if (alertPixels == 0) failures.Add("Error state renders a distinct center alert mark");
+        }
+        checks++;
+        if (FlyoutWindow.DeviceGlyph(new("ds-edge", "Sony DualSense Edge", true, null, "索尼手柄报告")) != "\uE967"
+            || FlyoutWindow.DeviceGlyph(new("vk75", "Valkyrie 75", true, 80, "瓦尔基里 / SONiX 键盘")) != "\uE765"
+            || FlyoutWindow.DeviceGlyph(new("v75x", "ATK V75X", true, 90, "ATK 键盘电量")) != "\uE765"
+            || FlyoutWindow.DeviceGlyph(new("v9", "迈从 MCHOSE V9 Turbo+", true, 76, "迈从耳机电量服务")) != "\uE7F6"
+            || FlyoutWindow.DeviceGlyph(new("ax5", "MCHOSE AX5 V2", true, 80, "迈从接收器")) != "\uE962")
+            failures.Add("DeviceGlyph distinguishes controllers, keyboards, headsets and mice");
+        checks++;
+        if (DeviceCatalog.Models.Any(m => DeviceCatalog.Find(new("test", m.Vendor, m.Product, m.Name, default), m.Protocol) != m))
+            failures.Add("DeviceCatalog O(1) index matches every registered model");
+        bool wasDebugEnabled = DebugService.Enabled;
+        try
+        {
+            DebugService.Enabled = false;
+            var sampleDescriptor = new HidDescriptor("test-forced-observe", 0x3837, 0x600A, "Test Device", default);
+            DebugService.Observe([sampleDescriptor], force: true);
+            checks++;
+            if (DebugService.Enabled || DebugService.Inventory.Count != 1 || DebugService.Inventory[0].Vendor != "3837")
+                failures.Add("Forced inventory observation does not mutate DebugService.Enabled");
+        }
+        finally { DebugService.Enabled = wasDebugEnabled; }
         File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "self-test.json"), JsonSerializer.Serialize(new { Passed = failures.Count == 0, ProtocolChecks = checks, Failures = failures }));
         Environment.ExitCode = failures.Count == 0 ? 0 : 1;
     }

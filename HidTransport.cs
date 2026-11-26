@@ -2,17 +2,43 @@ using System.Text.RegularExpressions;
 
 namespace BatteryDisplay;
 
-internal sealed record HidDescriptor(string Path, ushort Vendor, ushort Product, string Name, HidBattery.Caps Caps)
+internal sealed partial record HidDescriptor(string Path, ushort Vendor, ushort Product, string Name, HidBattery.Caps Caps)
 {
     public string Id => "hid:" + Path.ToUpperInvariant();
     // Collections of one interface share a physical link, but two receivers retain distinct instance ids.
-    public string Group => Regex.Replace(Regex.Replace(Path, @"&col[0-9a-f]+", "", RegexOptions.IgnoreCase), @"&[0-9a-f]{4}(?=#\{)", "", RegexOptions.IgnoreCase).ToUpperInvariant();
+    public string Group => SuffixPattern().Replace(CollectionPattern().Replace(Path, ""), "").ToUpperInvariant();
+
+    [GeneratedRegex(@"&col[0-9a-f]+", RegexOptions.IgnoreCase)]
+    private static partial Regex CollectionPattern();
+    [GeneratedRegex(@"&[0-9a-f]{4}(?=#\{)", RegexOptions.IgnoreCase)]
+    private static partial Regex SuffixPattern();
 }
 
 internal interface IHidBatterySession : IDisposable
 {
     Task WriteAsync(byte[] report, CancellationToken token);
     Task<byte[]?> ReadAsync(int timeoutMs, CancellationToken token);
+    bool SetFeature(byte[] report) => false;
+    byte[]? GetFeature(byte id, int length) => null;
+}
+
+internal static class HidSessionExtensions
+{
+    public static async Task<T?> ReadUntilAsync<T>(this IHidBatterySession session, int maxReads, int timeoutMs,
+        Func<byte[], T?> parse, CancellationToken token, bool stopOnTimeout = false) where T : class
+    {
+        for (int i = 0; i < maxReads; i++)
+        {
+            var response = await session.ReadAsync(timeoutMs, token);
+            if (response is null)
+            {
+                if (stopOnTimeout) break;
+                continue;
+            }
+            if (parse(response) is { } parsed) return parsed;
+        }
+        return null;
+    }
 }
 
 internal sealed class HidConnection : IHidBatterySession
@@ -100,33 +126,41 @@ internal sealed class UsbProvider : IBatteryProvider
     {
         var all = HidBattery.Enumerate(token);
         DebugService.Observe(all);
-        var results = new List<Peripheral>();
-        foreach (var adapter in Adapters)
-        foreach (var group in all.Where(adapter.Matches).GroupBy(d => d.Group))
+        // Probe distinct physical devices concurrently while keeping collections of the same link sequential.
+        var work = Adapters
+            .SelectMany(adapter => all.Where(adapter.Matches).GroupBy(d => d.Group).Select(group => (Adapter: adapter, GroupKey: group.Key, Descriptors: group.ToArray())))
+            .GroupBy(item => item.GroupKey, StringComparer.Ordinal)
+            .ToArray();
+        var batches = await Task.WhenAll(work.Select(physical => Task.Run(async () =>
         {
-            bool found = false;
-            foreach (var d in group)
+            var groupResults = new List<Peripheral>();
+            foreach (var (adapter, groupKey, descriptors) in physical)
             {
-                token.ThrowIfCancellationRequested();
-                try
+                bool found = false;
+                foreach (var d in descriptors)
                 {
-                    var readings = await adapter.ReadAsync(d, all, token);
-                    DebugService.Log(adapter.Name, readings.Count > 0 ? "reading" : "no-reading", new { Device = DebugService.Key(d.Id), Count = readings.Count });
-                    if (readings.Count == 0) continue;
-                    results.AddRange(readings.Select(reading => reading with { ConnectionId = group.Key, ReceiverPresent = true }));
-                    found = true;
-                    break;
+                    token.ThrowIfCancellationRequested();
+                    try
+                    {
+                        var readings = await adapter.ReadAsync(d, all, token);
+                        DebugService.Log(adapter.Name, readings.Count > 0 ? "reading" : "no-reading", new { Device = DebugService.Key(d.Id), Count = readings.Count });
+                        if (readings.Count == 0) continue;
+                        groupResults.AddRange(readings.Select(reading => reading with { ConnectionId = groupKey, ReceiverPresent = true }));
+                        found = true;
+                        break;
+                    }
+                    catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+                    catch (Exception ex) { DebugService.Log(adapter.Name, "read-failed", new { Device = DebugService.Key(d.Id), Type = ex.GetType().Name, ex.HResult }); }
                 }
-                catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
-                catch (Exception ex) { DebugService.Log(adapter.Name, "read-failed", new { Device = DebugService.Key(d.Id), Type = ex.GetType().Name, ex.HResult }); }
+                if (!found)
+                {
+                    var d = descriptors[0];
+                    groupResults.Add(new(d.Id, d.Name, false, null, adapter.Name, "USB / 2.4G", Note: "未取得电量 · 设备可能休眠或接口忙",
+                        ConnectionId: groupKey, ReceiverPresent: true));
+                }
             }
-            if (!found)
-            {
-                var d = group.First();
-                results.Add(new(d.Id, d.Name, false, null, adapter.Name, "USB / 2.4G", Note: "未取得电量 · 设备可能休眠或接口忙",
-                    ConnectionId: group.Key, ReceiverPresent: true));
-            }
-        }
-        return results;
+            return groupResults;
+        }, token)));
+        return batches.SelectMany(batch => batch).ToList();
     }
 }

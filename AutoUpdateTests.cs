@@ -40,7 +40,21 @@ internal static class AutoUpdateTests
             catch (Exception ex) when (ex is InvalidDataException or OperationCanceledException) { return true; }
         }
         var plan = Prepare(release).GetAwaiter().GetResult();
-        Check(plan.Files.Length == 7 && File.Exists(Path.Combine(plan.Stage, "resources.pri")), "Download, hash, extract and version validation complete before replacement");
+        try
+        {
+            Check(plan.Files.Length == 7 && File.Exists(Path.Combine(plan.Stage, "resources.pri")), "Download, hash, extract and version validation complete before replacement");
+        }
+        finally
+        {
+            string? workspace = Path.GetDirectoryName(plan.Stage);
+            if (workspace is not null && AutoUpdate.IsOwnedUpdateWorkspace(workspace) && Directory.Exists(workspace))
+                Directory.Delete(workspace, true);
+        }
+        Check(AutoUpdate.IsValidHealthPath(@"c:\temp\PeriRing-update-0123456789abcdef\healthy", @"C:\TEMP"),
+            "Update health path comparison is case-insensitive on Windows");
+        Check(!AutoUpdate.IsValidHealthPath(@"C:\temp\other\healthy", @"C:\temp")
+            && !AutoUpdate.IsValidHealthPath(@"C:\temp\PeriRing-update-0123456789abcdef\other.txt", @"C:\temp"),
+            "Update health path rejects unrelated directories and filenames");
         Check(Rejected(release with { Sha256 = new string('0', 64) }), "Corrupt download is rejected");
         Check(Rejected(release with { Size = bytes.Length + 1 }), "Truncated download is rejected");
         Check(Rejected(release with { Size = AutoUpdate.MaximumDownload + 1 }), "Oversized release is rejected");

@@ -1,7 +1,8 @@
 namespace BatteryDisplay;
 
-internal sealed class AsusAdapter : IHidBatteryAdapter
+internal sealed class AsusAdapter(Func<HidDescriptor, IHidBatterySession> connect) : IHidBatteryAdapter
 {
+    public AsusAdapter() : this(d => new HidConnection(d)) { }
     public string Name => "华硕 ROG / TUF";
     public string Models => "已登记的 Harpe、Keris、Gladius、Chakram、Spatha、Pugio、TUF M4 等无线鼠标";
     public bool Matches(HidDescriptor d)
@@ -13,16 +14,10 @@ internal sealed class AsusAdapter : IHidBatteryAdapter
     public async Task<List<Peripheral>> ReadAsync(HidDescriptor d, IReadOnlyList<HidDescriptor> all, CancellationToken token)
     {
         var model = DeviceCatalog.Find(d, "asus")!;
-        using var connection = new HidConnection(d);
+        using var connection = connect(d);
         await connection.WriteAsync([(byte)model.Report, 0x12, 7], token);
-        for (int i = 0; i < 6; i++)
-        {
-            var response = await connection.ReadAsync(100, token);
-            if (response is null) break;
-            var reading = Parse(response, d);
-            if (reading is not null) return [reading];
-        }
-        return [];
+        var reading = await connection.ReadUntilAsync(6, 100, response => Parse(response, d), token, stopOnTimeout: true);
+        return reading is not null ? [reading] : [];
     }
     internal static Peripheral? Parse(byte[] response, HidDescriptor d)
     {
@@ -90,15 +85,16 @@ internal sealed class KeychronAdapter : IHidBatteryAdapter
     }
 }
 
-internal sealed class CorsairAdapter : IHidBatteryAdapter
+internal sealed class CorsairAdapter(Func<HidDescriptor, IHidBatterySession> connect) : IHidBatteryAdapter
 {
+    public CorsairAdapter() : this(d => new HidConnection(d)) { }
     public string Name => "海盗船";
     public string Models => "Dark Core RGB Pro SE 接收器、K65 PLUS Wireless 接收器；Sabre v2 由 CompX 接入";
     public bool Matches(HidDescriptor d) => d.Vendor == 0x1B1C && d.Product is 0x1B7F or 0x2B07
         && d.Caps.UsagePage == 0xFF42 && d.Caps.OutputLength >= 65;
     public async Task<List<Peripheral>> ReadAsync(HidDescriptor d, IReadOnlyList<HidDescriptor> all, CancellationToken token)
     {
-        using var connection = new HidConnection(d);
+        using var connection = connect(d);
         int? last = null;
         for (int attempt = 0; attempt < 3; attempt++)
         {

@@ -8,6 +8,7 @@ internal sealed record BatterySample(DateTimeOffset Time, int Percent, int? Vend
 }
 
 internal sealed record BatteryJournalDevice(string Id, string Name, string Transport, List<BatterySample> Samples);
+internal sealed record BatteryStats(DateTimeOffset? LastChargedAt, double? DischargeRatePerHour, TimeSpan? EstimatedRemaining, int SampleCount);
 
 internal sealed class BatteryJournal
 {
@@ -21,6 +22,8 @@ internal sealed class BatteryJournal
     private HashSet<string> continuous = new(StringComparer.Ordinal);
     private DateTimeOffset? lastScan;
     private bool dirty;
+    private List<BatteryJournalDevice>? cachedSnapshot;
+    private DateTimeOffset cachedSnapshotTime;
 
     internal BatteryJournal(string? path = null) => this.path = path;
 
@@ -74,6 +77,7 @@ internal sealed class BatteryJournal
         }
         continuous = current;
         lastScan = now;
+        cachedSnapshot = null;
         Prune(now);
         Save();
     }
@@ -82,9 +86,72 @@ internal sealed class BatteryJournal
 
     public List<BatteryJournalDevice> Read(DateTimeOffset now)
     {
+        if (cachedSnapshot is not null && now >= cachedSnapshotTime && now - cachedSnapshotTime < TimeSpan.FromMinutes(1))
+            return cachedSnapshot;
         Prune(now);
         Save();
-        return devices.Values.OrderByDescending(device => device.Samples[^1].Time).ToList();
+        cachedSnapshotTime = now;
+        return cachedSnapshot = devices.Values.OrderByDescending(device => device.Samples[^1].Time).ToList();
+    }
+
+    public List<BatterySample> ReadMergedSamples(IEnumerable<string> ids, DateTimeOffset now)
+    {
+        var idSet = ids.ToHashSet(StringComparer.Ordinal);
+        var entries = Read(now)
+            .Where(device => idSet.Contains(device.Id))
+            .SelectMany(device => device.Samples.Select(sample => (device.Id, Sample: sample)))
+            .OrderBy(item => item.Sample.Time)
+            .ThenBy(item => item.Id, StringComparer.Ordinal)
+            .ToList();
+        var merged = new List<BatterySample>(entries.Count);
+        string? previousId = null;
+        BatterySample? previousSample = null;
+        foreach (var (deviceId, sample) in entries)
+        {
+            if (previousSample is not null && sample.Time == previousSample.Time
+                && sample.Percent == previousSample.Percent && sample.Charging == previousSample.Charging)
+                continue;
+            bool startsSegment = previousSample is null
+                || (deviceId == previousId
+                    ? sample.StartsSegment
+                    : sample.Time - previousSample.Time > MaximumGap);
+            var normalized = sample with { StartsSegment = startsSegment };
+            merged.Add(normalized);
+            previousId = deviceId;
+            previousSample = normalized;
+        }
+        return merged;
+    }
+
+    public static BatteryStats Summarize(IReadOnlyList<BatterySample> samples, bool preferVendor)
+    {
+        if (samples.Count == 0) return new(null, null, null, 0);
+        DateTimeOffset? lastCharged = null;
+        double dischargeHours = 0;
+        double dischargeDrop = 0;
+        for (int i = 0; i < samples.Count; i++)
+        {
+            var current = samples[i];
+            int currentLevel = current.Level(preferVendor);
+            if (current.Charging || currentLevel == 100) lastCharged = current.Time;
+            if (i == 0 || current.StartsSegment) continue;
+            var previous = samples[i - 1];
+            if (previous.Charging || current.Charging) continue;
+            double hours = (current.Time - previous.Time).TotalHours;
+            int drop = previous.Level(preferVendor) - currentLevel;
+            if (hours > 0 && drop >= 0)
+            {
+                dischargeHours += hours;
+                dischargeDrop += drop;
+            }
+        }
+        double? rate = dischargeHours >= 1.0 && dischargeDrop >= 2 ? dischargeDrop / dischargeHours : null;
+        var latest = samples[^1];
+        int latestLevel = latest.Level(preferVendor);
+        TimeSpan? remaining = rate is > 0.05 && !latest.Charging && latestLevel > 0
+            ? TimeSpan.FromHours(Math.Min(720, latestLevel / rate.Value))
+            : null;
+        return new(lastCharged, rate, remaining, samples.Count);
     }
 
     private void Prune(DateTimeOffset now)

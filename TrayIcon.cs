@@ -11,6 +11,15 @@ internal static class TrayIcon
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool DestroyIcon(IntPtr icon);
 
+    internal static bool IsTaskbarLight()
+    {
+        try
+        {
+            return Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "SystemUsesLightTheme", 0) is int value && value == 1;
+        }
+        catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or IOException) { return false; }
+    }
+
     internal static Icon CreateCombined(IReadOnlyList<Peripheral> devices, bool error = false, int size = 32, int lowThreshold = Preferences.DefaultLowBatteryThreshold)
     {
         size = Math.Clamp(size, 16, 256);
@@ -19,7 +28,8 @@ internal static class TrayIcon
         g.ScaleTransform(size * 4 / 32f, size * 4 / 32f);
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-        bool light = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "SystemUsesLightTheme", 0) is int value && value == 1;
+        g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+        bool light = IsTaskbarLight();
         var foreground = light ? Color.FromArgb(25, 30, 35) : Color.FromArgb(246, 248, 250);
         var low = Color.FromArgb(246, 87, 94);
         var layout = SegmentedRing.Layout(devices, lowThreshold);
@@ -51,13 +61,17 @@ internal static class TrayIcon
             using var idle = new Pen(Color.FromArgb(145, foreground), 4.2f);
             g.DrawEllipse(idle, 2.25f, 2.25f, 27.5f, 27.5f);
         }
-        using var diamond = new SolidBrush(foreground);
-        g.FillPolygon(diamond, new PointF[] { new(16, 9), new(23, 16), new(16, 23), new(9, 16) });
         if (error)
         {
-            using var font = new Font("Segoe UI", 11, FontStyle.Bold, GraphicsUnit.Pixel);
-            using var brush = new SolidBrush(foreground);
-            g.DrawString("!", font, brush, 13, 8);
+            using var font = new Font("Segoe UI", 14, FontStyle.Bold, GraphicsUnit.Pixel);
+            using var brush = new SolidBrush(low);
+            using var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+            g.DrawString("!", font, brush, new RectangleF(6, 5, 20, 22), format);
+        }
+        else
+        {
+            using var diamond = new SolidBrush(foreground);
+            g.FillPolygon(diamond, new PointF[] { new(16, 9), new(23, 16), new(16, 23), new(9, 16) });
         }
         return ToIcon(bitmap, size);
     }
@@ -72,7 +86,7 @@ internal static class TrayIcon
         g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
         if (ring)
         {
-            bool light = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "SystemUsesLightTheme", 0) is int value && value == 1;
+            bool light = IsTaskbarLight();
             Color foreground = light ? Color.FromArgb(65, 69, 73) : Color.FromArgb(200, 203, 207);
             Color active = !connected || error ? Color.FromArgb(125, 128, 133)
                 : level <= lowThreshold ? Color.FromArgb(240, 103, 103) : foreground;

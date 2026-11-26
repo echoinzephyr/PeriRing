@@ -1,7 +1,8 @@
 namespace BatteryDisplay;
 
-internal sealed class NzxtAdapter : IHidBatteryAdapter
+internal sealed class NzxtAdapter(Func<HidDescriptor, IHidBatterySession> connect) : IHidBatteryAdapter
 {
+    public NzxtAdapter() : this(d => new HidConnection(d)) { }
     public string Name => "NZXT";
     public string Models => "Lift Elite Wireless（USB 有线 / 2.4G）";
 
@@ -10,17 +11,13 @@ internal sealed class NzxtAdapter : IHidBatteryAdapter
 
     public async Task<List<Peripheral>> ReadAsync(HidDescriptor d, IReadOnlyList<HidDescriptor> all, CancellationToken token)
     {
-        using var connection = new HidConnection(d);
+        using var connection = connect(d);
         // Drain queued telemetry before requesting a new sample.
         for (int i = 0; i < 3; i++)
             if (await connection.ReadAsync(1, token) is null) break;
         await connection.WriteAsync(BatteryRequest(), token);
-        for (int attempt = 0; attempt < 10; attempt++)
-        {
-            var response = await connection.ReadAsync(150, token);
-            if (Parse(response, d) is { } reading) return [reading];
-        }
-        return [];
+        var reading = await connection.ReadUntilAsync(10, 150, response => Parse(response, d), token);
+        return reading is not null ? [reading] : [];
     }
 
     internal static byte[] BatteryRequest()

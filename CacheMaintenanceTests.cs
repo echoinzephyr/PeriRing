@@ -8,6 +8,8 @@ internal static class CacheMaintenanceTests
         void Check(bool ok, string name) { checks++; if (!ok) failures.Add(name); }
         string root = Path.Combine(AppContext.BaseDirectory, "cache-tests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
+        try
+        {
         var now = DateTime.UtcNow;
         var files = Enumerable.Range(0, 5).Select(i =>
         {
@@ -34,6 +36,8 @@ internal static class CacheMaintenanceTests
         string update = Path.Combine(root, "PeriRing-update-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(update, "stage")); File.WriteAllText(Path.Combine(update, "stage", "fixture"), "test");
         Check(CacheMaintenance.DeleteOwned(update, root, true) && !Directory.Exists(update), "Verified owned update directory is reclaimed recursively");
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         bool enabled = DebugService.Enabled;
         try
         {

@@ -1,7 +1,8 @@
 namespace BatteryDisplay;
 
-internal sealed class MchoseAdapter : IHidBatteryAdapter
+internal sealed class MchoseAdapter(Func<HidDescriptor, IHidBatterySession> connect) : IHidBatteryAdapter
 {
+    public MchoseAdapter() : this(d => new HidConnection(d)) { }
     public string Name => "迈从";
     public string Models => "AX5 V2、M7、L7、A7 / A7 V2 的已登记有线接口，以及 Realtek 接收器";
     public bool Matches(HidDescriptor d) => d.Caps.UsagePage == 0xFF01 && d.Caps.FeatureLength >= 21 &&
@@ -13,7 +14,7 @@ internal sealed class MchoseAdapter : IHidBatteryAdapter
 
     public async Task<List<Peripheral>> ReadAsync(HidDescriptor d, IReadOnlyList<HidDescriptor> all, CancellationToken token)
     {
-        using var connection = new HidConnection(d);
+        using var connection = connect(d);
         var reports = new List<(byte Id, int Length)> { (0x11, 21) };
         if (d.Caps.FeatureLength > 21) reports.Add((0x11, d.Caps.FeatureLength));
         if (IsWired(d) && d.Caps.FeatureLength >= 65) reports.Add((0x12, d.Caps.FeatureLength));
@@ -39,8 +40,9 @@ internal sealed class MchoseAdapter : IHidBatteryAdapter
         HidBattery.ParseStatus(response, d.Name, d.Path, IsWired(d) ? d.Product : null, reportId);
 }
 
-internal sealed class SinowealthAdapter : IHidBatteryAdapter
+internal sealed class SinowealthAdapter(Func<HidDescriptor, IHidBatterySession> connect) : IHidBatteryAdapter
 {
+    public SinowealthAdapter() : this(d => new HidConnection(d)) { }
     public string Name => "WLmouse / LAMZU / Glorious / 迈从 A5";
     public string Models => "Beast X / Max / Mini Pro、Maya X、Model O Wireless、A5 Pro Max";
     public bool Matches(HidDescriptor d) => d.Caps.UsagePage >= 0xFF00 && d.Caps.FeatureLength >= 64 &&
@@ -51,7 +53,7 @@ internal sealed class SinowealthAdapter : IHidBatteryAdapter
 
     public async Task<List<Peripheral>> ReadAsync(HidDescriptor d, IReadOnlyList<HidDescriptor> all, CancellationToken token)
     {
-        using var connection = new HidConnection(d);
+        using var connection = connect(d);
         var request = new byte[65];
         new byte[] { 0, 0, 0, 2, 2, 0, 0x83 }.CopyTo(request, 0);
         if (!connection.SetFeature(request)) return [];
@@ -78,8 +80,9 @@ internal sealed class SinowealthAdapter : IHidBatteryAdapter
     }
 }
 
-internal sealed class CompxAdapter : IHidBatteryAdapter
+internal sealed class CompxAdapter(Func<HidDescriptor, IHidBatterySession> connect) : IHidBatteryAdapter
 {
+    public CompxAdapter() : this(d => new HidConnection(d)) { }
     public string Name => "ATK / VGN / VXE / Pulsar";
     public string Models => "已登记的 R1 / X1 / A9、Dragonfly 4K、X2 系列；含部分 Hitscan / Scyrox / G-Wolves 接收器";
     public bool Matches(HidDescriptor d) => DeviceCatalog.Find(d, "compx") is not null
@@ -94,16 +97,10 @@ internal sealed class CompxAdapter : IHidBatteryAdapter
     }
     public async Task<List<Peripheral>> ReadAsync(HidDescriptor d, IReadOnlyList<HidDescriptor> all, CancellationToken token)
     {
-        using var connection = new HidConnection(d);
+        using var connection = connect(d);
         await connection.WriteAsync(Request(), token);
-        for (int i = 0; i < 5; i++)
-        {
-            var response = await connection.ReadAsync(150, token);
-            if (response is null) break;
-            var reading = Parse(response, d);
-            if (reading is not null) return [reading];
-        }
-        return [];
+        var reading = await connection.ReadUntilAsync(5, 150, response => Parse(response, d), token, stopOnTimeout: true);
+        return reading is not null ? [reading] : [];
     }
     internal static Peripheral? Parse(byte[] r, HidDescriptor d)
     {

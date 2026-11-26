@@ -1,7 +1,8 @@
 namespace BatteryDisplay;
 
-internal sealed class RazerAdapter : IHidBatteryAdapter
+internal sealed class RazerAdapter(Func<HidDescriptor, IHidBatterySession> connect) : IHidBatteryAdapter
 {
+    public RazerAdapter() : this(d => new HidConnection(d)) { }
     public string Name => "雷蛇";
     public string Models => "已登记的 Viper / DeathAdder / Basilisk / Naga / Cobra / Pro Click，以及 BlackWidow / DeathStalker 无线键盘";
     public bool Matches(HidDescriptor d) => DeviceCatalog.Find(d, "razer") is not null && d.Caps.FeatureLength >= 91;
@@ -9,7 +10,7 @@ internal sealed class RazerAdapter : IHidBatteryAdapter
     public async Task<List<Peripheral>> ReadAsync(HidDescriptor d, IReadOnlyList<HidDescriptor> all, CancellationToken token)
     {
         var model = DeviceCatalog.Find(d, "razer")!;
-        using var connection = new HidConnection(d);
+        using var connection = connect(d);
         async Task<int?> Query(byte command)
         {
             byte[] request = BuildRequest((byte)model.Parameter, command);
