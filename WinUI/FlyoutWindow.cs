@@ -29,6 +29,11 @@ internal sealed partial class FlyoutWindow : Window
     private readonly SolidColorBrush pinnedBorderBrush = new();
     private readonly SolidColorBrush pinnedIconBrush = new();
     private readonly SolidColorBrush mutedIconBrush = new();
+    private readonly SolidColorBrush previewForegroundBrush = new();
+    private readonly SolidColorBrush previewTrackBrush = new();
+    private readonly SolidColorBrush previewRing1Brush = new();
+    private readonly SolidColorBrush previewRing2Brush = new();
+    private readonly SolidColorBrush previewRing3Brush = new();
     private readonly LinearGradientBrush brandBrush = new() { StartPoint = new Windows.Foundation.Point(0, 0), EndPoint = new Windows.Foundation.Point(1, 1) };
     private readonly Border topScrollDivider = new() { Height = 1, Opacity = 0, Margin = new Thickness(-16, 0, -16, 0) };
     private readonly Border bottomScrollDivider = new() { Height = 1, Opacity = 0, Margin = new Thickness(-16, 0, -16, 0) };
@@ -197,6 +202,11 @@ internal sealed partial class FlyoutWindow : Window
         pinnedBorderBrush.Color = Color.FromArgb(Dark ? (byte)110 : (byte)64, accentColor.R, accentColor.G, accentColor.B);
         pinnedIconBrush.Color = Dark ? Color.FromArgb(255, 134, 224, 186) : accentColor;
         mutedIconBrush.Color = Dark ? Color.FromArgb(150, 255, 255, 255) : Color.FromArgb(145, 24, 24, 24);
+        previewForegroundBrush.Color = Dark ? Color.FromArgb(255, 244, 246, 249) : Color.FromArgb(255, 28, 33, 38);
+        previewTrackBrush.Color = Dark ? Color.FromArgb(72, 244, 246, 249) : Color.FromArgb(56, 28, 33, 38);
+        previewRing1Brush.Color = Dark ? Color.FromArgb(255, 86, 217, 165) : Color.FromArgb(255, 22, 148, 106);
+        previewRing2Brush.Color = Dark ? Color.FromArgb(255, 76, 185, 255) : Color.FromArgb(255, 26, 118, 210);
+        previewRing3Brush.Color = Dark ? Color.FromArgb(255, 255, 198, 72) : Color.FromArgb(255, 208, 128, 16);
         NativeWindow.SetDark(hwnd, Dark);
     }
 
@@ -257,6 +267,7 @@ internal sealed partial class FlyoutWindow : Window
     }
     public void ShowSettings() => Navigate("settings");
     private void ShowBatteryAlerts() => Navigate("battery-alerts");
+    private void ShowDiagnostics() => Navigate("diagnostics");
     public void ShowDevices() { navigation.Clear(); page = "devices"; UpdateView(); }
     public void ShowSupport() => Navigate("support");
     public void ShowDeviceManagement() => Navigate("manage");
@@ -379,7 +390,7 @@ internal sealed partial class FlyoutWindow : Window
                 .Concat(HistoricalDevices().Select(d => $"{d.Id}|{JournalDisplayName(d)}"))) : "";
             bool changed = page switch
             {
-                "settings" or "battery-alerts" => false,
+                "settings" or "battery-alerts" or "diagnostics" => false,
                 "updates" => renderedUpdate != controller.Update || renderedCheckingUpdates != controller.CheckingUpdates
                     || renderedInstallingUpdate != controller.InstallingUpdate || renderedUpdateStatus != controller.UpdateStatus,
                 "support" => !ReferenceEquals(renderedProviders, controller.Providers),
@@ -393,6 +404,7 @@ internal sealed partial class FlyoutWindow : Window
             body.Children.Clear();
             if (page == "settings") BuildSettings();
             else if (page == "battery-alerts") BuildBatteryAlerts();
+            else if (page == "diagnostics") BuildDiagnostics();
             else if (page == "manage") BuildManagement();
             else if (page == "support") BuildSupport();
             else if (page == "updates") BuildUpdates();
@@ -438,7 +450,7 @@ internal sealed partial class FlyoutWindow : Window
         title.Text = page switch
         {
             "settings" => "设置", "support" => "支持设备", "manage" => "设备开关与排序", "updates" => "检查更新",
-            "battery-alerts" => "低电量提醒",
+            "battery-alerts" => "低电量提醒", "diagnostics" => "诊断与日志",
             _ => IsDeviceDetail ? "设备详情" : AppBrand.Name
         };
         title.VerticalAlignment = VerticalAlignment.Center;

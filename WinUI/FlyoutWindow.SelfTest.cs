@@ -18,7 +18,6 @@ internal sealed partial class FlyoutWindow
         {
             page = view switch
             {
-                "diagnostics" => "settings",
                 "device-detail" => DevicePagePrefix + "preview-mouse",
                 _ => view
             };
@@ -27,13 +26,12 @@ internal sealed partial class FlyoutWindow
                 controller.Preferences.PopupHeight = view switch
                 {
                     "devices" => 520, "settings" => 680, "battery-alerts" => 440, "device-detail" => 780,
-                    "diagnostics" => 560, "manage" => 480, "support" => 620, _ => 520
+                    "diagnostics" => 440, "manage" => 480, "support" => 620, _ => 520
                 };
                 PositionFlyout(controller.Preferences.PopupWidth, controller.Preferences.PopupHeight);
             }
             UpdateView();
             await Task.Delay(450);
-            if (view == "diagnostics") { scroll.ChangeView(null, scroll.ScrollableHeight, null, true); await Task.Delay(150); }
             var bitmap = new Microsoft.UI.Xaml.Media.Imaging.RenderTargetBitmap();
             await bitmap.RenderAsync(root);
             var buffer = await bitmap.GetPixelsAsync();
@@ -81,6 +79,10 @@ internal sealed partial class FlyoutWindow
         bool original = toggle.IsOn;
         string originalStyle = controller.Preferences.EffectiveTrayIconStyle;
         bool originalColorRings = controller.Preferences.ConcentricColorRings;
+        string originalTheme = controller.Preferences.Theme;
+        bool originalDebug = controller.Preferences.DebugMode;
+        Button NamedButton(string title) => Descendants(root).OfType<Button>().Single(b => AutomationProperties.GetName(b) == title);
+        void Invoke(Button button) => ((IInvokeProvider)FrameworkElementAutomationPeer.CreatePeerForElement(button).GetPattern(PatternInterface.Invoke)).Invoke();
         try
         {
             toggle.IsOn = !original;
@@ -94,24 +96,31 @@ internal sealed partial class FlyoutWindow
                 var bounds = e.TransformToVisual(toggle).TransformBounds(new Windows.Foundation.Rect(0, 0, e.ActualWidth, e.ActualHeight));
                 return bounds.Top >= -.5 && bounds.Bottom <= toggle.ActualHeight + .5;
             }), "Native toggle knob fits inside its full control height");
-            var iconStyleBox = Descendants(root).OfType<ComboBox>().Single(c => AutomationProperties.GetName(c) == "托盘图标样式");
-            iconStyleBox.SelectedIndex = 1;
             var colorToggle = Descendants(root).OfType<ToggleSwitch>().Single(t => AutomationProperties.GetName(t) == "同心圆环分色");
+            var colorRow = (FrameworkElement)VisualTreeHelper.GetParent(colorToggle);
+            Check(originalStyle == "Concentric" ? colorRow.Visibility == Visibility.Visible : colorRow.Visibility == Visibility.Collapsed,
+                "Concentric color toggle only appears when concentric style is active");
+            Invoke(NamedButton("托盘样式：同心圆环"));
+            Check(colorRow.Visibility == Visibility.Visible, "Selecting concentric style reveals color-ring toggle");
             colorToggle.IsOn = true;
             Check(controller.Preferences.EffectiveTrayIconStyle == "Concentric"
                 && Preferences.Load().EffectiveTrayIconStyle == "Concentric"
                 && Preferences.Load().ConcentricColorRings,
                 "Concentric tray icon style and color-ring toggle persist cleanly");
-            iconStyleBox.SelectedIndex = 2;
-            Check(controller.Preferences.EffectiveTrayIconStyle == "DotRing"
+            Invoke(NamedButton("托盘样式：环形点阵"));
+            Check(colorRow.Visibility == Visibility.Collapsed
+                && controller.Preferences.EffectiveTrayIconStyle == "DotRing"
                 && Preferences.Load().EffectiveTrayIconStyle == "DotRing",
-                "DotRing tray icon style persists cleanly");
-            var theme = Descendants(root).OfType<ComboBox>().Single(c => AutomationProperties.GetName(c) == "外观");
-            theme.IsDropDownOpen = true;
+                "DotRing tray icon style persists and collapses concentric color option");
+            Invoke(NamedButton("外观：深色"));
+            Check(controller.Preferences.Theme == "Dark" && Preferences.Load().Theme == "Dark",
+                "Segmented theme switcher applies and saves theme selection");
+            var intervalBox = Descendants(root).OfType<ComboBox>().Single(c => AutomationProperties.GetName(c) == "后台刷新间隔");
+            intervalBox.IsDropDownOpen = true;
             await Task.Delay(100);
             UpdateView();
-            Check(Descendants(root).Contains(theme) && theme.IsDropDownOpen, "Refresh preserves an open settings dropdown");
-            theme.IsDropDownOpen = false;
+            Check(Descendants(root).Contains(intervalBox) && intervalBox.IsDropDownOpen, "Refresh preserves an open settings dropdown");
+            intervalBox.IsDropDownOpen = false;
             HideFlyout();
             await Task.Delay(25);
             ShowFlyout();
@@ -119,7 +128,7 @@ internal sealed partial class FlyoutWindow
             Check(visible && NativeWindow.IsVisible(hwnd) && root.Opacity > .99, "Rapid reopen is not hidden by an old close animation");
             ShowSupport(); ShowSettings();
             await Task.Delay(300);
-            Check(Descendants(root).OfType<ToggleSwitch>().Count() == 4 && body.Opacity > .99, "Rapid page navigation settles on visible settings controls");
+            Check(Descendants(root).OfType<ToggleSwitch>().Count() == 3 && body.Opacity > .99, "Rapid page navigation settles on visible settings controls");
             AppWindow.Move(new Windows.Graphics.PointInt32(AppWindow.Position.X - 80, AppWindow.Position.Y));
             var expectedPosition = AppWindow.Position;
             var expectedSize = AppWindow.Size;
@@ -169,11 +178,20 @@ internal sealed partial class FlyoutWindow
             var scrollBounds = scroll.TransformToVisual(root).TransformBounds(new Windows.Foundation.Rect(0, 0, scroll.ActualWidth, scroll.ActualHeight));
             Check(root.ActualWidth - scrollBounds.Right >= 6 && root.ActualWidth - scrollBounds.Right <= 10,
                 "Scrollbar stays near the outer edge instead of consuming card width");
-            Button NamedButton(string title) => Descendants(root).OfType<Button>().Single(b => AutomationProperties.GetName(b) == title);
-            void Invoke(Button button) => ((IInvokeProvider)FrameworkElementAutomationPeer.CreatePeerForElement(button).GetPattern(PatternInterface.Invoke)).Invoke();
             double alertsReturnOffset = scroll.VerticalOffset;
-            Check(!Descendants(root).Any(c => AutomationProperties.GetName(c) is "低电量阈值" or "测试通知"),
-                "General settings only shows the battery alert entry");
+            Check(!Descendants(root).Any(c => AutomationProperties.GetName(c) is "低电量阈值" or "测试通知" or "Debug 模式"),
+                "General settings keeps battery alert details and diagnostics in subpages");
+            Invoke(NamedButton("诊断与日志"));
+            await Task.Delay(160);
+            var debugSwitch = Descendants(root).OfType<ToggleSwitch>().Single(t => AutomationProperties.GetName(t) == "Debug 模式");
+            debugSwitch.IsOn = !originalDebug;
+            Check(page == "diagnostics" && controller.Preferences.DebugMode == !originalDebug && Descendants(root).Contains(debugSwitch),
+                "Diagnostics subpage retains Debug toggle when saving");
+            debugSwitch.IsOn = originalDebug;
+            Invoke(NamedButton("返回上一页"));
+            await Task.Delay(180);
+            Check(page == "settings" && Math.Abs(scroll.VerticalOffset - alertsReturnOffset) < 1,
+                "Back from diagnostics restores settings and its scroll position");
             Invoke(NamedButton("低电量提醒"));
             await Task.Delay(45);
             var alertsFade = pageMotion;
@@ -253,6 +271,8 @@ internal sealed partial class FlyoutWindow
             controller.Preferences.PreferVendorDisplay = original;
             controller.Preferences.SetTrayIconStyle(originalStyle);
             controller.Preferences.ConcentricColorRings = originalColorRings;
+            controller.Preferences.Theme = originalTheme;
+            controller.Preferences.DebugMode = originalDebug;
             controller.Save();
         }
         File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "ui-self-test.json"), System.Text.Json.JsonSerializer.Serialize(new

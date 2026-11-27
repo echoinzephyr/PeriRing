@@ -16,13 +16,6 @@ internal static class CoreSelfTest
         checks += LowBatteryAlertTests.Run(failures);
         checks += BatteryJournalTests.Run(failures);
         if (NativeBattery.NormalizeAddress("aa:bb:cc:dd:ee:ff") != "AABBCCDDEEFF") failures.Add("Bluetooth address normalization");
-        foreach (int level in new[] { 0, 9, 20, 40, 75, 80, 100 })
-        {
-            using var icon = TrayIcon.Create(level, true);
-            using var bitmap = icon.ToBitmap();
-            if (bitmap.Size != new Size(32, 32)) failures.Add("Tray icon dimensions");
-            bitmap.Save(Path.Combine(AppContext.BaseDirectory, $"icon-{level}.png"));
-        }
         var historical = new Peripheral("test", "test", false, 75, "Windows");
         if (historical.CanShow || !historical.State.Contains("上次")) failures.Add("Stale readings are marked historical");
         foreach (var (raw, expected) in new[] { (14, 10), (15, 20), (74, 70), (75, 80), (84, 80), (85, 90), (95, 100), (100, 100) })

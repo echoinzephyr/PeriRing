@@ -242,49 +242,6 @@ internal static class TrayIcon
         return ToIcon(bitmap);
     }
 
-    public static Icon Create(int? level, bool connected, bool error = false, bool ring = true, int size = 32, int lowThreshold = Preferences.DefaultLowBatteryThreshold)
-    {
-        size = Math.Clamp(size, 16, 256);
-        using var bitmap = CreateCanvas(size, out var g);
-        using (g)
-        {
-            if (ring)
-            {
-                bool light = IsTaskbarLight();
-                Color foreground = light ? Color.FromArgb(65, 69, 73) : Color.FromArgb(200, 203, 207);
-                Color active = !connected || error ? Color.FromArgb(125, 128, 133)
-                    : level <= lowThreshold ? Color.FromArgb(240, 103, 103) : foreground;
-                using var track = new Pen(Color.FromArgb(85, foreground), 2.7f);
-                using var progress = new Pen(active, 2.7f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
-                g.DrawEllipse(track, 3, 3, 26, 26);
-                if (level > 0 && !error) g.DrawArc(progress, 3, 3, 26, 26, -135, Math.Max(1, 360 * level.Value / 100f - 5));
-                using var center = new SolidBrush(Color.FromArgb(155, active));
-                if (error || level is null)
-                {
-                    using var smallFont = new Font("Segoe UI", 16, FontStyle.Bold, GraphicsUnit.Pixel);
-                    using var centerFormat = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-                    g.DrawString(error ? "!" : "?", smallFont, center, new RectangleF(4, 3, 24, 25), centerFormat);
-                }
-                else g.FillPolygon(center, [new(16, 10), new(22, 16), new(16, 22), new(10, 16)]);
-            }
-            else
-            {
-                Color color = !connected || error ? Color.FromArgb(155, 163, 175)
-                    : level <= lowThreshold ? Color.FromArgb(255, 108, 108)
-                    : level <= 40 ? Color.FromArgb(255, 199, 91) : Color.FromArgb(107, 216, 191);
-                using var brush = new SolidBrush(color);
-                using var background = new SolidBrush(Color.FromArgb(75, 90, 100));
-                string text = error ? "!" : level?.ToString() ?? "?";
-                using var font = new Font("Segoe UI", text.Length == 3 ? 15 : 19, FontStyle.Bold, GraphicsUnit.Pixel);
-                using var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-                g.DrawString(text, font, brush, new RectangleF(-2, -3, 36, 31), format);
-                g.FillRectangle(background, 3, 28, 26, 3);
-                if (level.HasValue && !error) g.FillRectangle(brush, 3, 28, 26 * level.Value / 100f, 3);
-            }
-        }
-        return ToIcon(bitmap);
-    }
-
     // Encode a lossless 32-bit BI_RGB ICO stream directly instead of calling Bitmap.GetHicon().
     // GDI+ GetHicon() premultiplies RGB into a straight-alpha DIB, darkening every semi-transparent
     // track and anti-aliased edge into a muddy halo on Windows 11's taskbar.
