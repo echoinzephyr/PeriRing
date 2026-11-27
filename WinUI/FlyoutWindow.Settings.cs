@@ -8,11 +8,28 @@ internal sealed partial class FlyoutWindow
 {
     private void BuildSettings()
     {
+        var iconStyle = new ComboBox
+        {
+            Width = 112,
+            MinWidth = 0,
+            FontSize = 12,
+            VerticalAlignment = VerticalAlignment.Center,
+            ItemsSource = new[] { "分段圆环", "同心圆环", "环形点阵" },
+            SelectedIndex = controller.Preferences.EffectiveTrayIconStyle switch { "Concentric" => 1, "DotRing" => 2, _ => 0 }
+        };
+        AutomationProperties.SetName(iconStyle, "托盘图标样式");
+        iconStyle.SelectionChanged += (_, _) =>
+        {
+            if (updating || iconStyle.SelectedIndex < 0) return;
+            controller.Preferences.SetTrayIconStyle(iconStyle.SelectedIndex switch { 1 => "Concentric", 2 => "DotRing", _ => "Segmented" });
+            controller.Save();
+        };
         body.Children.Add(SectionLabel("设备与显示", first: true));
         body.Children.Add(SettingsGroup(
             SettingsLink("\uE8CB", "设备开关与排序", "选择托盘显示项与排列优先级", ShowDeviceManagement),
-            ToggleSetting("\uEA3A", "分段环形图标", "关闭后显示最低电量数字", controller.Preferences.RingIcons,
-                value => { controller.Preferences.RingIcons = value; controller.Save(); }),
+            SettingsRow("\uEA3A", "托盘图标样式", "分段圆环、同心圆环或环形点阵（最低电量）", iconStyle),
+            ToggleSetting("\uE790", "同心圆环分色", "各圈以不同颜色区分设备，低电量仍显示红色", controller.Preferences.ConcentricColorRings,
+                value => { controller.Preferences.ConcentricColorRings = value; controller.Save(); }),
             ToggleSetting("\uE9F9", "与官方驱动一致", "采用已核实的厂商电量分档", controller.Preferences.PreferVendorDisplay,
                 value => { controller.Preferences.PreferVendorDisplay = value; controller.Save(); })));
 
@@ -78,7 +95,7 @@ internal sealed partial class FlyoutWindow
 
     private void BuildManagement()
     {
-        body.Children.Add(new TextBlock { Text = "打开开关选择要显示的设备，拖动条目调整优先级。\n超过 5 个设备时，前三个显示为弧线，其余显示为点。", FontSize = 12, Opacity = .7, TextWrapping = TextWrapping.Wrap });
+        body.Children.Add(new TextBlock { Text = "打开开关选择要显示的设备，拖动条目调整优先级。\n分段圆环超过 5 台时显示 3 弧 + 点；同心圆环由外向内对应优先级，超过 3 台汇总到圆心点。", FontSize = 12, Opacity = .7, TextWrapping = TextWrapping.Wrap });
         var devices = controller.ManagedDevices;
         if (devices.Count == 0)
         {

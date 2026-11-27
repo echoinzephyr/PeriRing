@@ -76,7 +76,12 @@ internal sealed class TrayController : IDisposable
         };
         trayIconSize = NativeWindow.TrayIconSize();
         taskbarLight = TrayIcon.IsTaskbarLight();
-        manager.Icon = TrayIcon.CreateCombined([], size: trayIconSize);
+        manager.Icon = Preferences.EffectiveTrayIconStyle switch
+        {
+            "Concentric" => TrayIcon.CreateConcentric([], size: trayIconSize, colorRings: Preferences.ConcentricColorRings),
+            "DotRing" => TrayIcon.CreateDotRing([], size: trayIconSize),
+            _ => TrayIcon.CreateCombined([], size: trayIconSize)
+        };
         manager.Text = "";
         manager.Visible = true;
         DebugService.Log("startup", "tray-ready");
@@ -262,8 +267,12 @@ internal sealed class TrayController : IDisposable
         var old = manager.Icon;
         trayIconSize = NativeWindow.TrayIconSize();
         taskbarLight = TrayIcon.IsTaskbarLight();
-        manager.Icon = Preferences.RingIcons ? TrayIcon.CreateCombined(devices, Error is not null, trayIconSize, Preferences.LowBatteryThreshold)
-            : TrayIcon.Create(devices.Select(d => d.DisplayBattery).Min(), devices.Count > 0, Error is not null, false, trayIconSize, Preferences.LowBatteryThreshold);
+        manager.Icon = Preferences.EffectiveTrayIconStyle switch
+        {
+            "Concentric" => TrayIcon.CreateConcentric(devices, Error is not null, trayIconSize, Preferences.LowBatteryThreshold, Preferences.ConcentricColorRings),
+            "DotRing" => TrayIcon.CreateDotRing(devices, Error is not null, trayIconSize, Preferences.LowBatteryThreshold),
+            _ => TrayIcon.CreateCombined(devices, Error is not null, trayIconSize, Preferences.LowBatteryThreshold)
+        };
         old?.Dispose();
         // Always use the Fluent WinUI hover card instead of the legacy system tooltip.
         manager.Text = "";

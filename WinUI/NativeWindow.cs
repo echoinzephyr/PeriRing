@@ -32,6 +32,7 @@ internal static class NativeWindow
     [DllImport("user32.dll")] private static extern IntPtr MonitorFromPoint(Point point, uint flags);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern bool GetMonitorInfoW(IntPtr monitor, ref MonitorInfo info);
     [DllImport("user32.dll")] private static extern uint GetDpiForWindow(IntPtr hwnd);
+    [DllImport("user32.dll")] private static extern uint GetDpiForSystem();
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr FindWindowW(string className, string? windowName);
     [DllImport("user32.dll")] private static extern int GetSystemMetricsForDpi(int index, uint dpi);
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hwnd, int command);
@@ -106,6 +107,7 @@ internal static class NativeWindow
     public static int TrayIconSize()
     {
         uint dpi = GetDpiForWindow(FindWindowW("Shell_TrayWnd", null));
+        if (dpi == 0) dpi = GetDpiForSystem();
         return Math.Clamp(GetSystemMetricsForDpi(49, dpi == 0 ? 96u : dpi), 16, 64);
     }
     public static void ShowInactive(IntPtr hwnd) => ShowWindow(hwnd, 4);

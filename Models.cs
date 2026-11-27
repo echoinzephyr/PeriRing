@@ -24,12 +24,27 @@ internal sealed class Preferences
     public const int DefaultLowBatteryThreshold = 20;
     public const int MaxAliasLength = 40;
     internal static readonly int[] LowBatteryThresholds = [10, 15, 20, 25, 30, 35, 40, 45, 50];
+    internal static readonly string[] TrayIconStyles = ["Segmented", "Concentric", "DotRing"];
     public HashSet<string> HiddenDevices { get; set; } = [];
     public bool LowBatteryAlerts { get; set; } = true;
     public int LowBatteryThreshold { get; set; } = DefaultLowBatteryThreshold;
     public Dictionary<string, string> DeviceAliases { get; set; } = new(StringComparer.Ordinal);
     public Dictionary<string, string> DeviceLinks { get; set; } = new(StringComparer.Ordinal);
     public bool RingIcons { get; set; } = true;
+    public string TrayIconStyle { get; set; } = "";
+    public bool ConcentricColorRings { get; set; }
+    public string EffectiveTrayIconStyle => NormalizeTrayIconStyle(TrayIconStyle, RingIcons);
+    internal static string NormalizeTrayIconStyle(string? style, bool ringIcons) => style switch
+    {
+        "Segmented" or "Concentric" or "DotRing" => style,
+        "Number" => "DotRing",
+        _ => ringIcons ? "Segmented" : "DotRing"
+    };
+    public void SetTrayIconStyle(string style)
+    {
+        TrayIconStyle = NormalizeTrayIconStyle(style, true);
+        RingIcons = TrayIconStyle != "DotRing";
+    }
     public bool PreferVendorDisplay { get; set; } = true;
     public string Theme { get; set; } = "System";
     public List<string> DeviceOrder { get; set; } = [];
@@ -54,6 +69,7 @@ internal sealed class Preferences
             .Select(entry => (entry.Key, Alias: NormalizeAlias(entry.Value)))
             .Where(entry => entry.Alias is not null).ToDictionary(entry => entry.Key, entry => entry.Alias!, StringComparer.Ordinal);
         result.DeviceLinks = NormalizeLinks(result.DeviceLinks);
+        result.SetTrayIconStyle(NormalizeTrayIconStyle(result.TrayIconStyle, result.RingIcons));
         if (!LowBatteryThresholds.Contains(result.LowBatteryThreshold)) result.LowBatteryThreshold = DefaultLowBatteryThreshold;
         result.DeviceOrder = (result.DeviceOrder ?? []).Distinct(StringComparer.Ordinal).ToList();
         result.RefreshSeconds = Math.Clamp(result.RefreshSeconds, 15, 3600);

@@ -1,8 +1,8 @@
 namespace BatteryDisplay;
 
-internal sealed record RingSegment(int DeviceIndex, bool IsDot, float StartAngle, float SweepAngle, int? Battery, int LowThreshold)
+internal sealed record RingSegment(int DeviceIndex, bool IsDot, float StartAngle, float SweepAngle, int? Battery, int LowThreshold, bool Charging = false)
 {
-    public bool Low => Battery <= LowThreshold;
+    public bool Low => !Charging && Battery <= LowThreshold;
     public float ProgressAngle => SweepAngle * Math.Clamp(Battery ?? 0, 0, 100) / 100f;
 }
 
@@ -16,10 +16,10 @@ internal static class SegmentedRing
         {
             float sector = 360f / count;
             // Rounded ends consume about 18 degrees at this stroke width.
-            // Leave a visible opening even after downsampling to a 16-pixel tray icon.
+            // Leave a visible opening even at a 16-pixel tray icon.
             float gap = count == 1 ? 26 : 34;
             return devices.Select((d, index) => new RingSegment(index, false,
-                -90 + index * sector + gap / 2, sector - gap, d.GaugeValue, lowThreshold)).ToList();
+                -90 + index * sector + gap / 2, sector - gap, d.GaugeValue, lowThreshold, d.Connected && d.Charging)).ToList();
         }
         // Three equally allocated arcs, then one compact dot for each remaining device.
         const float dotWeight = .35f;
@@ -29,9 +29,9 @@ internal static class SegmentedRing
         float arcGap = Math.Min(34, arcSector * .6f);
         var result = new List<RingSegment>();
         for (int i = 0; i < 3; i++)
-            result.Add(new(i, false, -90 + i * arcSector + arcGap / 2, arcSector - arcGap, devices[i].GaugeValue, lowThreshold));
+            result.Add(new(i, false, -90 + i * arcSector + arcGap / 2, arcSector - arcGap, devices[i].GaugeValue, lowThreshold, devices[i].Connected && devices[i].Charging));
         for (int i = 0; i < dots; i++)
-            result.Add(new(i + 3, true, -90 + 3 * arcSector + (i + .5f) * dotSector, 0, devices[i + 3].GaugeValue, lowThreshold));
+            result.Add(new(i + 3, true, -90 + 3 * arcSector + (i + .5f) * dotSector, 0, devices[i + 3].GaugeValue, lowThreshold, devices[i + 3].Connected && devices[i + 3].Charging));
         return result;
     }
     public static string Label(int index, int count) => count > 5 && index >= 3 ? $"点 {index - 2}" : $"弧 {index + 1}";

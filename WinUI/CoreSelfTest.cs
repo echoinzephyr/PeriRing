@@ -114,6 +114,143 @@ internal static class CoreSelfTest
             checks++;
             if (alertPixels == 0) failures.Add("Error state renders a distinct center alert mark");
         }
+        foreach (int count in new[] { 1, 2, 3, 4, 5 })
+        {
+            var sampleDevices = Enumerable.Range(0, count).Select(i => new Peripheral($"ring-{i}", $"设备 {i + 1}", true, i == count - 1 && count >= 4 ? 12 : 55 + i * 12, "fixture")).ToArray();
+            var layers = ConcentricRing.Layout(sampleDevices);
+            checks++;
+            int expectedLayers = count <= 3 ? count : 4;
+            bool nonOverlapping = true;
+            for (int i = 0; i < layers.Count - 1; i++)
+            {
+                float outerInnerEdge = layers[i].Radius - layers[i].StrokeWidth / 2f;
+                float innerOuterEdge = layers[i + 1].IsCenterDot ? layers[i + 1].Radius : layers[i + 1].Radius + layers[i + 1].StrokeWidth / 2f;
+                if (outerInnerEdge - innerOuterEdge < 1.2f) nonOverlapping = false;
+            }
+            if (layers.Count != expectedLayers || !nonOverlapping || (count >= 4 && (!layers[^1].IsCenterDot || !layers[^1].Low)))
+                failures.Add($"Concentric ring geometry for {count} devices");
+            if (count <= 4)
+            {
+                using var cIcon = TrayIcon.CreateConcentric(sampleDevices, size: 32);
+                using var cBmp = cIcon.ToBitmap();
+                cBmp.Save(Path.Combine(AppContext.BaseDirectory, $"concentric-{count}.png"));
+                if (count == 2)
+                {
+                    checks++;
+                    if (cBmp.GetPixel(16, 16).A != 0) failures.Add("Two concentric rings keep a clean open center");
+                }
+                if (count == 4)
+                {
+                    int overflowRed = 0;
+                    for (int x = 13; x <= 19; x++) for (int y = 13; y <= 19; y++)
+                    { var c = cBmp.GetPixel(x, y); if (c.A > 100 && c.R > 180 && c.G < 140 && c.B < 150) overflowRed++; }
+                    checks++;
+                    if (overflowRed == 0) failures.Add("Concentric overflow low-battery center dot renders red");
+                }
+            }
+        }
+        using (var colorIcon = TrayIcon.CreateConcentric(
+            [new("c0", "A", true, 75, "t"), new("c1", "B", true, 60, "t"), new("c2", "C", true, 85, "t")], size: 32, colorRings: true))
+        using (var colorBmp = colorIcon.ToBitmap())
+        {
+            colorBmp.Save(Path.Combine(AppContext.BaseDirectory, "concentric-color-3.png"));
+            int chromatic = 0;
+            for (int x = 0; x < 32; x++) for (int y = 0; y < 32; y++)
+            {
+                var c = colorBmp.GetPixel(x, y);
+                if (c.A > 120 && Math.Max(c.R, Math.Max(c.G, c.B)) - Math.Min(c.R, Math.Min(c.G, c.B)) > 40) chromatic++;
+            }
+            checks++;
+            if (chromatic < 40) failures.Add("Colorful concentric rings render distinct chromatic strokes");
+        }
+        using (var cErr = TrayIcon.CreateConcentric([], error: true, size: 32))
+        using (var cErrBmp = cErr.ToBitmap())
+        {
+            int alertPixels = 0;
+            for (int x = 10; x < 22; x++) for (int y = 8; y < 24; y++)
+            { var c = cErrBmp.GetPixel(x, y); if (c.A > 100 && c.R > 180 && c.G < 140 && c.B < 150) alertPixels++; }
+            checks++;
+            if (alertPixels == 0) failures.Add("Concentric error state renders a distinct center alert mark");
+        }
+        using (var chgCombined = TrayIcon.CreateCombined([new("chg-1", "Mouse", true, 40, "t", Charging: true)], size: 20))
+        using (var chgCombinedBmp = chgCombined.ToBitmap())
+        {
+            int green = 0, darkTrackHalos = 0;
+            bool light = TrayIcon.IsTaskbarLight();
+            for (int x = 0; x < 20; x++) for (int y = 0; y < 20; y++)
+            {
+                var c = chgCombinedBmp.GetPixel(x, y);
+                if (c.A > 120 && c.G > c.R + 30) green++;
+                if (!light && c.A >= 40 && c.A <= 100 && c.R < 180 && c.G < 180 && c.B < 180) darkTrackHalos++;
+            }
+            checks++;
+            if (green < 15) failures.Add("Segmented ring turns green while charging");
+            checks++;
+            if (darkTrackHalos > 0) failures.Add($"Lossless 32-bit ICO preserves bright translucent track without dark premultiplication halo ({darkTrackHalos})");
+        }
+        using (var chgConcentric = TrayIcon.CreateConcentric([new("chg-1", "Mouse", true, 40, "t", Charging: true)], size: 20))
+        using (var chgConcentricBmp = chgConcentric.ToBitmap())
+        {
+            int green = 0;
+            for (int x = 0; x < 20; x++) for (int y = 0; y < 20; y++)
+            { var c = chgConcentricBmp.GetPixel(x, y); if (c.A > 120 && c.G > c.R + 30) green++; }
+            checks++;
+            if (green < 15) failures.Add("Concentric ring turns green while charging");
+        }
+        using (var dNorm = TrayIcon.CreateDotRing([new("d0", "A", true, 72, "t"), new("d1", "B", true, 88, "t")], size: 32))
+        using (var dNormBmp = dNorm.ToBitmap())
+        {
+            dNormBmp.Save(Path.Combine(AppContext.BaseDirectory, "dotring-72.png"));
+            checks++;
+            if (dNormBmp.GetPixel(16, 16).A < 220) failures.Add("DotRing renders solid center core dot");
+        }
+        using (var dLow = TrayIcon.CreateDotRing([new("d0", "A", true, 72, "t"), new("d1", "B", true, 15, "t")], size: 32))
+        using (var dLowBmp = dLow.ToBitmap())
+        {
+            dLowBmp.Save(Path.Combine(AppContext.BaseDirectory, "dotring-low.png"));
+            int red = 0;
+            for (int x = 0; x < 32; x++) for (int y = 0; y < 32; y++)
+            { var c = dLowBmp.GetPixel(x, y); if (c.A > 120 && c.R > 180 && c.G < 140 && c.B < 150) red++; }
+            checks++;
+            if (red < 20) failures.Add("DotRing low battery renders red dots");
+        }
+        using (var dChg = TrayIcon.CreateDotRing([new("d0", "A", true, 65, "t", Charging: true)], size: 32))
+        using (var dChgBmp = dChg.ToBitmap())
+        {
+            dChgBmp.Save(Path.Combine(AppContext.BaseDirectory, "dotring-charging.png"));
+            int green = 0;
+            for (int x = 0; x < 32; x++) for (int y = 0; y < 32; y++)
+            { var c = dChgBmp.GetPixel(x, y); if (c.A > 120 && c.G > c.R + 30) green++; }
+            checks++;
+            if (green < 20) failures.Add("DotRing charging state renders green dots");
+        }
+        using (var dIdle = TrayIcon.CreateDotRing([], size: 32))
+        using (var dIdleBmp = dIdle.ToBitmap())
+        {
+            dIdleBmp.Save(Path.Combine(AppContext.BaseDirectory, "dotring-idle.png"));
+            checks++;
+            if (dIdleBmp.GetPixel(16, 16).A < 80) failures.Add("DotRing idle state keeps visible center mark");
+        }
+        using (var dErr = TrayIcon.CreateDotRing([], error: true, size: 32))
+        using (var dErrBmp = dErr.ToBitmap())
+        {
+            int alertPixels = 0;
+            for (int x = 10; x < 22; x++) for (int y = 8; y < 24; y++)
+            { var c = dErrBmp.GetPixel(x, y); if (c.A > 100 && c.R > 180 && c.G < 140 && c.B < 150) alertPixels++; }
+            checks++;
+            if (alertPixels == 0) failures.Add("DotRing error state renders a distinct center alert mark");
+        }
+        var legacyNumber = Preferences.FromJson("""{"RingIcons":false}""");
+        var legacyNumberStyle = Preferences.FromJson("""{"TrayIconStyle":"Number"}""");
+        var legacySegmented = Preferences.FromJson("""{"RingIcons":true}""");
+        var concentricPref = Preferences.FromJson("""{"TrayIconStyle":"Concentric","ConcentricColorRings":true}""");
+        var dotRingPref = Preferences.FromJson("""{"TrayIconStyle":"DotRing"}""");
+        checks++;
+        if (legacyNumber.EffectiveTrayIconStyle != "DotRing" || legacyNumberStyle.EffectiveTrayIconStyle != "DotRing"
+            || legacySegmented.EffectiveTrayIconStyle != "Segmented"
+            || concentricPref.EffectiveTrayIconStyle != "Concentric" || !concentricPref.ConcentricColorRings || !concentricPref.RingIcons
+            || dotRingPref.EffectiveTrayIconStyle != "DotRing" || dotRingPref.RingIcons)
+            failures.Add("Tray icon style migrates legacy preferences and preserves Concentric/DotRing styles");
         checks++;
         if (FlyoutWindow.DeviceGlyph(new("ds-edge", "Sony DualSense Edge", true, null, "索尼手柄报告")) != "\uE967"
             || FlyoutWindow.DeviceGlyph(new("vk75", "Valkyrie 75", true, 80, "瓦尔基里 / SONiX 键盘")) != "\uE765"

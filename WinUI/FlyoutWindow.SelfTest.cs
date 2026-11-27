@@ -77,8 +77,10 @@ internal sealed partial class FlyoutWindow
         Check(minimumSize.Width >= Math.Ceiling(340 * NativeWindow.Scale(hwnd))
             && minimumSize.Height >= Math.Ceiling(240 * NativeWindow.Scale(hwnd)),
             "Native border dragging respects minimum width and height before resizing");
-        var toggle = Descendants(root).OfType<ToggleSwitch>().Single(t => AutomationProperties.GetName(t) == "分段环形图标");
+        var toggle = Descendants(root).OfType<ToggleSwitch>().Single(t => AutomationProperties.GetName(t) == "与官方驱动一致");
         bool original = toggle.IsOn;
+        string originalStyle = controller.Preferences.EffectiveTrayIconStyle;
+        bool originalColorRings = controller.Preferences.ConcentricColorRings;
         try
         {
             toggle.IsOn = !original;
@@ -92,6 +94,18 @@ internal sealed partial class FlyoutWindow
                 var bounds = e.TransformToVisual(toggle).TransformBounds(new Windows.Foundation.Rect(0, 0, e.ActualWidth, e.ActualHeight));
                 return bounds.Top >= -.5 && bounds.Bottom <= toggle.ActualHeight + .5;
             }), "Native toggle knob fits inside its full control height");
+            var iconStyleBox = Descendants(root).OfType<ComboBox>().Single(c => AutomationProperties.GetName(c) == "托盘图标样式");
+            iconStyleBox.SelectedIndex = 1;
+            var colorToggle = Descendants(root).OfType<ToggleSwitch>().Single(t => AutomationProperties.GetName(t) == "同心圆环分色");
+            colorToggle.IsOn = true;
+            Check(controller.Preferences.EffectiveTrayIconStyle == "Concentric"
+                && Preferences.Load().EffectiveTrayIconStyle == "Concentric"
+                && Preferences.Load().ConcentricColorRings,
+                "Concentric tray icon style and color-ring toggle persist cleanly");
+            iconStyleBox.SelectedIndex = 2;
+            Check(controller.Preferences.EffectiveTrayIconStyle == "DotRing"
+                && Preferences.Load().EffectiveTrayIconStyle == "DotRing",
+                "DotRing tray icon style persists cleanly");
             var theme = Descendants(root).OfType<ComboBox>().Single(c => AutomationProperties.GetName(c) == "外观");
             theme.IsDropDownOpen = true;
             await Task.Delay(100);
@@ -234,7 +248,13 @@ internal sealed partial class FlyoutWindow
             Check(page == "manage", "Back from device details returns to device management");
             AppWindow.Resize(new Windows.Graphics.SizeInt32(originalWidth, originalHeight));
         }
-        finally { controller.Preferences.RingIcons = original; controller.Save(); }
+        finally
+        {
+            controller.Preferences.PreferVendorDisplay = original;
+            controller.Preferences.SetTrayIconStyle(originalStyle);
+            controller.Preferences.ConcentricColorRings = originalColorRings;
+            controller.Save();
+        }
         File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "ui-self-test.json"), System.Text.Json.JsonSerializer.Serialize(new
             { Passed = failures.Count == 0, Checks = count, WindowsAnimationsEnabled = uiSettings.AnimationsEnabled, Failures = failures }));
         if (failures.Count > 0) Environment.ExitCode = 1;

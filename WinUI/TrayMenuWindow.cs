@@ -54,9 +54,18 @@ internal sealed class TrayMenuWindow : Window
         var startup = new ToggleMenuFlyoutItem { Text = "开机启动", IsChecked = TrayController.StartupEnabled() };
         startup.Click += (_, _) => controller.SetStartup(startup.IsChecked);
         menu.Items.Add(startup);
-        var ring = new ToggleMenuFlyoutItem { Text = "分段环形图标", IsChecked = controller.Preferences.RingIcons };
-        ring.Click += (_, _) => { controller.Preferences.RingIcons = ring.IsChecked; controller.Save(); };
-        menu.Items.Add(ring);
+        var iconStyleMenu = new MenuFlyoutSubItem { Text = "托盘图标样式", Icon = new FontIcon { Glyph = "\uEA3A" } };
+        foreach (var (label, value) in new[] { ("分段圆环", "Segmented"), ("同心圆环", "Concentric"), ("环形点阵", "DotRing") })
+        {
+            var styleItem = new ToggleMenuFlyoutItem { Text = label, IsChecked = controller.Preferences.EffectiveTrayIconStyle == value };
+            styleItem.Click += (_, _) => { controller.Preferences.SetTrayIconStyle(value); controller.Save(); };
+            iconStyleMenu.Items.Add(styleItem);
+        }
+        iconStyleMenu.Items.Add(new MenuFlyoutSeparator());
+        var colorRings = new ToggleMenuFlyoutItem { Text = "同心圆环分色", IsChecked = controller.Preferences.ConcentricColorRings };
+        colorRings.Click += (_, _) => { controller.Preferences.ConcentricColorRings = colorRings.IsChecked; controller.Save(); };
+        iconStyleMenu.Items.Add(colorRings);
+        menu.Items.Add(iconStyleMenu);
         var official = new ToggleMenuFlyoutItem { Text = "与官方驱动电量一致", IsChecked = controller.Preferences.PreferVendorDisplay };
         official.Click += (_, _) => { controller.Preferences.PreferVendorDisplay = official.IsChecked; controller.Save(); };
         menu.Items.Add(official);
