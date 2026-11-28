@@ -38,6 +38,7 @@
     <None Update="LICENSE" CopyToPublishDirectory="PreserveNewest" />
     <None Update="CHANGELOG.md" CopyToPublishDirectory="PreserveNewest" />
     <None Update="docs\MCHOSE-V9-TURBO-VALIDATION.md" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="docs\ATK-NORDIC-MCHOSE-G87-VALIDATION.md" CopyToPublishDirectory="PreserveNewest" />
     <None Update="docs\images\*.png" CopyToPublishDirectory="PreserveNewest" />
     <None Update="Assets\periring.png" CopyToPublishDirectory="PreserveNewest" />
     <None Update="Assets\periring.ico" TargetPath="periring.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

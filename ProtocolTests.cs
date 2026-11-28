@@ -94,6 +94,43 @@ internal static class ProtocolTests
         atkReply[9] = 3;
         Check(AtkKeyboardAdapter.Parse(atkReply, atkWired, 0x010A) is null, "ATK rejects an unknown charging status");
 
+        var g87 = new HidDescriptor("test&mi_01&col06", 0x41E4, 0x2001, "MCHOSE 2.4G Wireless",
+            new() { UsagePage = 0xFF04, Usage = 2, FeatureLength = 8 });
+        var keyboard = new MchoseKeyboardAdapter();
+        Check(keyboard.Matches(g87) && !keyboard.Matches(g87 with { Product = 0x2002 })
+            && !keyboard.Matches(g87 with { Caps = g87.Caps with { FeatureLength = 7 } })
+            && !keyboard.Matches(g87 with { Caps = g87.Caps with { UsagePage = 0xFF02 } }),
+            "MCHOSE keyboard only queries its 8-byte vendor feature collection");
+        byte[] g87Reply = [0x06, 0x00, 0x02, 100, 100, 100, 0x95, 0x58];
+        Check(MchoseKeyboardAdapter.Parse(g87Reply, g87) is { Connected: true, Battery: 100, Transport: "2.4G", Charging: false },
+            "MCHOSE keyboard report carries the pack level");
+        g87Reply[3] = 101;
+        Check(MchoseKeyboardAdapter.Parse(g87Reply, g87) is null, "MCHOSE keyboard rejects an invalid percentage");
+        g87Reply[3] = 64; g87Reply[0] = 0x07;
+        Check(MchoseKeyboardAdapter.Parse(g87Reply, g87) is null, "MCHOSE keyboard requires report ID 0x06");
+        Check(MchoseKeyboardAdapter.Parse([0x06, 0x00, 0x02], g87) is null, "MCHOSE keyboard rejects a truncated report");
+
+        var atkNordic = new HidDescriptor("test&mi_02&col02", 0x373B, 0x1216, "NK mouse NANO dongle",
+            new() { UsagePage = 0xFF05, Usage = 1, InputLength = 64, OutputLength = 64 });
+        var nordic = new AtkNordicAdapter();
+        Check(nordic.Matches(atkNordic) && !nordic.Matches(atkNordic with { Product = 0x1217 })
+            && !nordic.Matches(atkNordic with { Caps = atkNordic.Caps with { UsagePage = 0xFFB3 } })
+            && !nordic.Matches(atkNordic with { Caps = atkNordic.Caps with { OutputLength = 63 } }),
+            "ATK Nordic mouse only queries the 64-byte 0xFF05 collection");
+        var nordicRequest = AtkNordicAdapter.BatteryRequest();
+        Check(nordicRequest.Length == 64 && nordicRequest.Take(8).SequenceEqual(new byte[] { 8, 0x7D, 0x72, 0x02, 0x00, 0x01, 0x07, 0x01 })
+            && nordicRequest.Skip(8).All(b => b == 0), "ATK Nordic request frame is the read-only battery query");
+        byte[] nordicReply = [8, 0x72, 0, 0x05, 0, 0x07, 1, 52, 0x50, 0x0F];
+        Check(AtkNordicAdapter.Parse(nordicReply, atkNordic) is { Connected: true, Battery: 52, Transport: "2.4G" },
+            "ATK Nordic recorded 52% frame");
+        nordicReply[1] = 0x73;
+        Check(AtkNordicAdapter.Parse(nordicReply, atkNordic) is null, "ATK Nordic ignores answers to other commands");
+        nordicReply[1] = 0x72; nordicReply[5] = 0x08;
+        Check(AtkNordicAdapter.Parse(nordicReply, atkNordic) is null, "ATK Nordic requires the battery sub-command");
+        nordicReply[5] = 0x07; nordicReply[7] = 101;
+        Check(AtkNordicAdapter.Parse(nordicReply, atkNordic) is null, "ATK Nordic rejects an invalid percentage");
+        Check(AtkNordicAdapter.Parse([8, 0x72, 0, 0x05], atkNordic) is null, "ATK Nordic rejects a truncated frame");
+
         var nzxtWired = Descriptor(0x1E71, 0x2129, 0xFFCA, 1);
         var nzxtWireless = nzxtWired with { Product = 0x2101 };
         var nzxt = new NzxtAdapter();

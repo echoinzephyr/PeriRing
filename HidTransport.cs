@@ -115,12 +115,12 @@ internal interface IHidBatteryAdapter
 internal sealed class UsbProvider : IBatteryProvider
 {
     internal static readonly IHidBatteryAdapter[] Adapters =
-    [new MchoseAdapter(), new MchoseHeadsetAdapter(), new SinowealthAdapter(), new CompxAdapter(), new LogitechAdapter(), new RazerAdapter(), new SonyAdapter(), new HeadsetAdapter(),
+    [new MchoseAdapter(), new MchoseKeyboardAdapter(), new MchoseHeadsetAdapter(), new SinowealthAdapter(), new CompxAdapter(), new LogitechAdapter(), new RazerAdapter(), new SonyAdapter(), new HeadsetAdapter(),
         new AsusAdapter(), new HyperXAdapter(), new KeychronAdapter(), new CorsairAdapter(), new SonixKeyboardAdapter(),
-        new AtkKeyboardAdapter(), new NzxtAdapter()];
+        new AtkKeyboardAdapter(), new AtkNordicAdapter(), new NzxtAdapter()];
     public string Name => "USB / 2.4G 外设";
     public string Coverage => string.Join("、", Adapters.Select(a => a.Name));
-    public string Verification => "迈从 AX5 V2、A7 Ultra(RE) 已实测；V9 Turbo+ 和 VK75 的 2.4G 电量已获用户确认";
+    public string Verification => "迈从 AX5 V2、A7 Ultra(RE)、G87 键盘和 ATK 373B:1216 接收器已实测；V9 Turbo+ 和 VK75 的 2.4G 电量已获用户确认";
 
     public async Task<List<Peripheral>> ReadAsync(CancellationToken token)
     {
