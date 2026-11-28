@@ -141,7 +141,7 @@
 |---|---|
 | 蓝牙 | Windows 已上报的电量；已连接 BLE 设备的标准 Battery Service |
 | 标准外设电池接口 | 通过 Windows 电池报告读取 USB/HID 外设；驱动需要提供有效容量 |
-| USB / 2.4G 私有协议 | 已登记的迈从、罗技、雷蛇、ATK/VGN/VXE、Pulsar、WLmouse、LAMZU、Glorious、华硕、赛睿、HyperX、Keychron、部分海盗船与 SONiX 键盘接口 |
+| USB / 2.4G 私有协议 | 已登记的迈从、罗技、雷蛇、ATK/VGN/VXE、Pulsar、WLmouse、LAMZU、Glorious、华硕、赛睿、HyperX、Keychron、部分海盗船与 SONiX 键盘接口；迈从键盘与 ATK / VXE Nordic 接收器 |
 | 新增有线适配 | ATK V75X 键盘、NZXT Lift Elite Wireless 鼠标、使用相同 Realtek 协议的部分迈从 M7、L7、A7 和 A7 V2 鼠标 |
 | 手柄 | 有效的 Windows 电池报告、XInput 电池档位，以及索尼手柄报告 |
 | 飞智 | 新版 `SpaceStationService` 提供的电量档位；旧版空间站 3 暂不支持 |
@@ -151,6 +151,8 @@
 - **MCHOSE AX5 V2**：已实测 2.4G 电量读取。当前源码也支持 USB 有线电量和充电状态，实测原始 82% 按官方分档显示为 80%。
 - **MCHOSE A7 Ultra(RE)**：2.4G 接收器已返回有效电量；与 AX5 V2 同时连接时能分别读取。
 - **MCHOSE V9 Turbo+**：用户在 Test 1 中验证了 2.4G 接收器的电量读取，与蓝牙鼠标同时连接时可分别显示。[验证记录](docs/MCHOSE-V9-TURBO-VALIDATION.md)
+- **MCHOSE G87 键盘**：`41E4:2001` 接收器的 Feature `0x06` 报告已在本机读通，只读接口，不下发配置命令。[验证记录](docs/ATK-NORDIC-MCHOSE-G87-VALIDATION.md)
+- **ATK / VXE Nordic 接收器**：`373B:1216` 的 Output `0x08` 电量查询已在本机读通，休眠后首帧丢失可重试。[验证记录](docs/ATK-NORDIC-MCHOSE-G87-VALIDATION.md)
 - **Valkyrie 75 / VK75**：用户已确认通过 2.4G 接收器正常显示电量；USB 有线型号识别已验证，有线连接尚未取得电量。
 - 本机 Windows 蓝牙电量读取；标准 BLE 直读和其他多品牌适配仍有待对应硬件验证。
 

@@ -99,6 +99,30 @@ internal static class AdapterSessionTests
         Check(mchoseReading.Single() is { Battery: 82, VendorDisplay: 80, Charging: true, Transport: "USB" } && mchoseSession.Disposed,
             "MCHOSE session reads wired feature report and computes vendor display");
 
+        // MCHOSE keyboard: read-only feature report, never sends an output or feature write
+        var g87Desc = new HidDescriptor("test&mi_01&col06", 0x41E4, 0x2001, "MCHOSE 2.4G Wireless",
+            new() { UsagePage = 0xFF04, Usage = 2, FeatureLength = 8 });
+        var g87Session = new MockSession(featureReplies: [[0x06, 0x00, 0x02, 87, 87, 87, 0x95, 0x58]]);
+        var g87Reading = await new MchoseKeyboardAdapter(_ => g87Session).ReadAsync(g87Desc, [g87Desc], CancellationToken.None);
+        Check(g87Reading.Single() is { Battery: 87, Transport: "2.4G" }
+            && g87Session.Writes.Count == 0 && g87Session.FeatureWrites.Count == 0 && g87Session.Disposed,
+            "MCHOSE keyboard session only reads the feature report");
+
+        // ATK Nordic: drains a queued frame before querying, then skips unrelated answers
+        var nordicDesc = new HidDescriptor("test&mi_02&col02", 0x373B, 0x1216, "NK mouse NANO dongle",
+            new() { UsagePage = 0xFF05, Usage = 1, InputLength = 64, OutputLength = 64 });
+        byte[] nordicStale = [8, 0x72, 0, 0x05, 0, 0x07, 1, 12, 0x50, 0x0F];
+        byte[] nordicOther = [8, 0x73, 0, 0x05, 0, 0x07, 1, 40, 0x50, 0x0F];
+        byte[] nordicValid = [8, 0x72, 0, 0x05, 0, 0x07, 1, 64, 0x50, 0x0F];
+        var nordicSession = new MockSession(readReplies: [nordicStale], writeReply: _ => [nordicOther, nordicValid]);
+        var nordicReading = await new AtkNordicAdapter(_ => nordicSession).ReadAsync(nordicDesc, [nordicDesc], CancellationToken.None);
+        Check(nordicReading.Single() is { Battery: 64, Transport: "2.4G" } && nordicSession.Writes.Count == 1 && nordicSession.Disposed,
+            "ATK Nordic session drains queued frames and skips unrelated answers");
+        var nordicTimeout = new MockSession();
+        Check((await new AtkNordicAdapter(_ => nordicTimeout).ReadAsync(nordicDesc, [nordicDesc], CancellationToken.None)).Count == 0
+            && nordicTimeout.Writes.Count == AtkNordicAdapter.Attempts && nordicTimeout.Disposed,
+            "ATK Nordic session retries a sleeping mouse without fabricating a level");
+
         return checks;
     }
 
